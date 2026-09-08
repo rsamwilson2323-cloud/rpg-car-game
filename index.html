@@ -1,0 +1,2899 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Terrain Vehicle – WebGPU</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; background: #000; }
+
+    /* ─── Custom Settings Panel ─────────────────────── */
+    #settings-toggle {
+      position: fixed; top: 16px; right: 16px; z-index: 2001;
+      width: 36px; height: 36px; border-radius: 10px;
+      background: rgba(15, 20, 30, 0.75); backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: rgba(200, 215, 235, 0.8); font-size: 18px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all 0.2s ease;
+      font-family: 'Inter', sans-serif;
+    }
+    #settings-toggle:hover {
+      background: rgba(25, 35, 50, 0.85);
+      border-color: rgba(255,255,255,0.15);
+      color: #fff;
+    }
+
+    #settings-panel {
+      position: fixed; top: 16px; right: 16px; z-index: 1999;
+      width: 280px; max-height: calc(100vh - 32px);
+      background: rgba(12, 16, 24, 0.82); backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 14px; overflow: hidden;
+      font-family: 'Inter', sans-serif; color: rgba(200, 215, 235, 0.85);
+      font-size: 11px; transition: opacity 0.25s ease, transform 0.25s ease;
+      display: flex; flex-direction: column;
+    }
+    #settings-panel.hidden {
+      opacity: 0; pointer-events: none; transform: translateX(10px) scale(0.97);
+    }
+
+    .panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 12px 8px; border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .panel-header h2 {
+      font-size: 12px; font-weight: 600; letter-spacing: 0.8px;
+      text-transform: uppercase; color: rgba(255,255,255,0.5);
+    }
+    .panel-close {
+      width: 24px; height: 24px; border-radius: 6px;
+      background: rgba(255,255,255,0.05); border: none;
+      color: rgba(255,255,255,0.4); font-size: 14px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    .panel-close:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+    .panel-scroll {
+      overflow-y: auto; flex: 1; padding: 6px 0;
+      scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent;
+    }
+    .panel-scroll::-webkit-scrollbar { width: 4px; }
+    .panel-scroll::-webkit-scrollbar-track { background: transparent; }
+    .panel-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+    /* Folder / Section */
+    .folder {
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+    }
+    .folder:last-child { border-bottom: none; }
+
+    .folder-header {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 12px; cursor: pointer; user-select: none;
+      transition: background 0.15s;
+    }
+    .folder-header:hover { background: rgba(255,255,255,0.03); }
+
+    .folder-chevron {
+      width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;
+      font-size: 9px; color: rgba(255,255,255,0.3); transition: transform 0.2s ease;
+    }
+    .folder.open .folder-chevron { transform: rotate(90deg); }
+
+    .folder-icon {
+      width: 22px; height: 22px; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px;
+    }
+
+    .folder-title {
+      font-size: 11px; font-weight: 500; letter-spacing: 0.3px;
+      color: rgba(255,255,255,0.7); flex: 1;
+    }
+
+    .folder-body {
+      max-height: 0; overflow: hidden; transition: max-height 0.3s ease;
+    }
+    .folder.open .folder-body { max-height: 800px; }
+
+    .folder-content {
+      padding: 2px 12px 8px;
+    }
+
+    /* Control Row */
+    .ctrl-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 4px 0; min-height: 26px;
+    }
+    .ctrl-label {
+      font-size: 10.5px; color: rgba(200, 215, 235, 0.55);
+      font-weight: 400; white-space: nowrap; flex-shrink: 0;
+      max-width: 100px;
+    }
+    .ctrl-input-wrap {
+      display: flex; align-items: center; gap: 6px; flex: 1;
+      justify-content: flex-end;
+    }
+
+    /* Slider */
+    .ctrl-slider {
+      -webkit-appearance: none; appearance: none;
+      width: 90px; height: 3px; border-radius: 2px;
+      background: rgba(255,255,255,0.08); outline: none;
+      cursor: pointer;
+    }
+    .ctrl-slider::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 10px; height: 10px; border-radius: 50%;
+      background: rgba(160, 190, 230, 0.8);
+      border: 1.5px solid rgba(255,255,255,0.2);
+      cursor: pointer; transition: background 0.15s;
+    }
+    .ctrl-slider::-webkit-slider-thumb:hover {
+      background: rgba(180, 210, 255, 1);
+    }
+    .ctrl-slider::-moz-range-thumb {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: rgba(160, 190, 230, 0.8);
+      border: 1.5px solid rgba(255,255,255,0.2);
+      cursor: pointer;
+    }
+
+    .ctrl-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px; color: rgba(200, 215, 235, 0.5);
+      min-width: 32px; text-align: right;
+    }
+
+    /* Checkbox */
+    .ctrl-check {
+      width: 14px; height: 14px; border-radius: 4px;
+      border: 1.5px solid rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.03);
+      cursor: pointer; position: relative;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    .ctrl-check.active {
+      background: rgba(100, 160, 240, 0.25);
+      border-color: rgba(100, 160, 240, 0.5);
+    }
+    .ctrl-check.active::after {
+      content: '✓'; font-size: 9px; color: rgba(140, 190, 255, 0.9);
+    }
+
+    /* Color swatch */
+    .ctrl-color {
+      width: 22px; height: 16px; border-radius: 4px;
+      border: 1px solid rgba(255,255,255,0.1);
+      cursor: pointer; position: relative; overflow: hidden;
+    }
+    .ctrl-color input {
+      position: absolute; inset: -4px;
+      width: calc(100% + 8px); height: calc(100% + 8px);
+      border: none; cursor: pointer; opacity: 0;
+    }
+
+    /* Select */
+    .ctrl-select {
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 5px; color: rgba(200, 215, 235, 0.7);
+      font-family: 'JetBrains Mono', monospace; font-size: 10px;
+      padding: 3px 6px; cursor: pointer; outline: none;
+    }
+    .ctrl-select option { background: #1a2030; }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.183.1/build/three.webgpu.js",
+      "three/webgpu": "https://cdn.jsdelivr.net/npm/three@0.183.1/build/three.webgpu.js",
+      "three/tsl": "https://cdn.jsdelivr.net/npm/three@0.183.1/build/three.tsl.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.183.1/examples/jsm/",
+      "three/examples/jsm/": "https://cdn.jsdelivr.net/npm/three@0.183.1/examples/jsm/",
+      "@dimforge/rapier3d-compat": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.14.0/+esm",
+      "stats-gl": "https://cdn.jsdelivr.net/npm/stats-gl@2.4.2/+esm"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="loader" style="
+    position: fixed; inset: 0; z-index: 9999;
+    background: #000000;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-family: 'Inter', system-ui, sans-serif; color: #ffffff;
+    transition: opacity 0.6s ease;
+  ">
+    <div style="position: relative; width: 48px; height: 48px; margin-bottom: 28px;">
+      <div style="
+        width: 48px; height: 48px; border-radius: 50%;
+        border: 3px solid rgba(255, 255, 255, 0.15);
+        border-top-color: rgba(255, 255, 255, 0.8);
+        animation: spin 0.8s linear infinite;
+      "></div>
+    </div>
+    <div style="font-size: 15px; font-weight: 500; letter-spacing: 0.5px; margin-bottom: 12px;">
+      Loading terrain vehicle
+    </div>
+    <div id="loader-status" style="font-size: 12px; color: rgba(255, 255, 255, 0.5);">
+      Initializing physics…
+    </div>
+    <div style="
+      width: 200px; height: 3px; border-radius: 3px;
+      background: rgba(255, 255, 255, 0.12); margin-top: 20px; overflow: hidden;
+    ">
+      <div id="loader-bar" style="
+        width: 0%; height: 100%; border-radius: 3px;
+        background: rgba(255, 255, 255, 0.7);
+        transition: width 0.4s ease;
+      "></div>
+    </div>
+  </div>
+  <style>
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+
+  <!-- Settings Toggle Button -->
+  <button id="settings-toggle" title="Settings">⚙</button>
+
+  <!-- Settings Panel -->
+  <div id="settings-panel" class="hidden">
+    <div class="panel-header">
+      <h2>Settings</h2>
+      <button class="panel-close" id="panel-close">✕</button>
+    </div>
+    <div class="panel-scroll" id="panel-scroll"></div>
+  </div>
+
+  <script type="module">
+import RAPIER from '@dimforge/rapier3d-compat'
+import * as THREE from 'three/webgpu'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { ImprovedNoise } from 'three/addons/math/ImprovedNoise.js'
+import Stats from 'stats-gl'
+import {
+  Fn, uniform, float, vec3, positionWorld,
+  smoothstep, mix, mx_noise_float, time, clamp,
+} from 'three/tsl'
+
+/* ─── Custom GUI System ──────────────────────────────────────────────── */
+const panelEl = document.getElementById('settings-panel')
+const scrollEl = document.getElementById('panel-scroll')
+const toggleBtn = document.getElementById('settings-toggle')
+const closeBtn = document.getElementById('panel-close')
+
+let panelOpen = false
+toggleBtn.addEventListener('click', () => {
+  panelOpen = !panelOpen
+  panelEl.classList.toggle('hidden', !panelOpen)
+  toggleBtn.style.display = panelOpen ? 'none' : 'flex'
+})
+closeBtn.addEventListener('click', () => {
+  panelOpen = false
+  panelEl.classList.add('hidden')
+  toggleBtn.style.display = 'flex'
+})
+
+
+const folderIcons = {
+  'Car': ['🚗', 'rgba(240,80,60,0.15)'],
+  'Camera': ['📷', 'rgba(100,180,255,0.15)'],
+  'Terrain': ['⛰', 'rgba(120,200,120,0.15)'],
+  'Lighting': ['☀', 'rgba(255,220,100,0.15)'],
+  'Fog': ['🌫', 'rgba(180,180,200,0.15)'],
+  'Biomes': ['🎨', 'rgba(200,140,255,0.15)'],
+  'Dust': ['💨', 'rgba(210,180,140,0.15)'],
+}
+
+function createFolder(name, startOpen = false) {
+  const folder = document.createElement('div')
+  folder.className = 'folder' + (startOpen ? ' open' : '')
+
+  const [icon, iconBg] = folderIcons[name] || ['⚙', 'rgba(255,255,255,0.08)']
+
+  const header = document.createElement('div')
+  header.className = 'folder-header'
+  header.innerHTML = `
+    <div class="folder-chevron">▶</div>
+    <div class="folder-icon" style="background:${iconBg}">${icon}</div>
+    <div class="folder-title">${name}</div>
+  `
+  header.addEventListener('click', () => folder.classList.toggle('open'))
+
+  const body = document.createElement('div')
+  body.className = 'folder-body'
+  const content = document.createElement('div')
+  content.className = 'folder-content'
+  body.appendChild(content)
+
+  folder.appendChild(header)
+  folder.appendChild(body)
+  scrollEl.appendChild(folder)
+
+  return {
+    addSlider(label, obj, key, min, max, step, onChange) {
+      const row = document.createElement('div')
+      row.className = 'ctrl-row'
+      const valDisplay = document.createElement('span')
+      valDisplay.className = 'ctrl-value'
+      valDisplay.textContent = Number(obj[key]).toFixed(step < 1 ? (step < 0.01 ? 3 : 2) : (step >= 1 ? 0 : 1))
+
+      const slider = document.createElement('input')
+      slider.type = 'range'; slider.className = 'ctrl-slider'
+      slider.min = min; slider.max = max; slider.step = step; slider.value = obj[key]
+      slider.addEventListener('input', () => {
+        obj[key] = parseFloat(slider.value)
+        valDisplay.textContent = Number(obj[key]).toFixed(step < 1 ? (step < 0.01 ? 3 : 2) : (step >= 1 ? 0 : 1))
+        if (onChange) onChange(obj[key])
+      })
+
+      row.innerHTML = `<span class="ctrl-label">${label}</span>`
+      const wrap = document.createElement('div')
+      wrap.className = 'ctrl-input-wrap'
+      wrap.appendChild(slider)
+      wrap.appendChild(valDisplay)
+      row.appendChild(wrap)
+      content.appendChild(row)
+      return { update() { slider.value = obj[key]; slider.dispatchEvent(new Event('input')) } }
+    },
+    addCheckbox(label, obj, key, onChange) {
+      const row = document.createElement('div')
+      row.className = 'ctrl-row'
+      const check = document.createElement('div')
+      check.className = 'ctrl-check' + (obj[key] ? ' active' : '')
+      check.addEventListener('click', () => {
+        obj[key] = !obj[key]
+        check.classList.toggle('active', obj[key])
+        if (onChange) onChange(obj[key])
+      })
+      row.innerHTML = `<span class="ctrl-label">${label}</span>`
+      const wrap = document.createElement('div')
+      wrap.className = 'ctrl-input-wrap'
+      wrap.appendChild(check)
+      row.appendChild(wrap)
+      content.appendChild(row)
+      return { update() { check.classList.toggle('active', obj[key]) } }
+    },
+    addColor(label, obj, key, onChange) {
+      const row = document.createElement('div')
+      row.className = 'ctrl-row'
+      const swatch = document.createElement('div')
+      swatch.className = 'ctrl-color'
+      swatch.style.background = obj[key]
+      const input = document.createElement('input')
+      input.type = 'color'; input.value = obj[key]
+      input.addEventListener('input', () => {
+        obj[key] = input.value
+        swatch.style.background = input.value
+        if (onChange) onChange(input.value)
+      })
+      swatch.appendChild(input)
+      row.innerHTML = `<span class="ctrl-label">${label}</span>`
+      const wrap = document.createElement('div')
+      wrap.className = 'ctrl-input-wrap'
+      wrap.appendChild(swatch)
+      row.appendChild(wrap)
+      content.appendChild(row)
+    },
+    addSelect(label, obj, key, options, onChange) {
+      const row = document.createElement('div')
+      row.className = 'ctrl-row'
+      const sel = document.createElement('select')
+      sel.className = 'ctrl-select'
+      for (const [name, val] of Object.entries(options)) {
+        const opt = document.createElement('option')
+        opt.value = val; opt.textContent = name
+        if (parseInt(val) === obj[key]) opt.selected = true
+        sel.appendChild(opt)
+      }
+      sel.addEventListener('change', () => {
+        obj[key] = parseInt(sel.value)
+        if (onChange) onChange(obj[key])
+      })
+      row.innerHTML = `<span class="ctrl-label">${label}</span>`
+      const wrap = document.createElement('div')
+      wrap.className = 'ctrl-input-wrap'
+      wrap.appendChild(sel)
+      row.appendChild(wrap)
+      content.appendChild(row)
+    },
+  }
+}
+
+const loaderStatus = document.getElementById('loader-status')
+const loaderBar = document.getElementById('loader-bar')
+
+function setLoading(text, pct) {
+  if (loaderStatus) loaderStatus.textContent = text
+  if (loaderBar) loaderBar.style.width = pct + '%'
+}
+
+setLoading('Initializing physics…', 10)
+await RAPIER.init()
+setLoading('Physics ready', 25)
+
+const GROUND_SIZE = 400
+const GROUND_SEGMENTS = 200
+const GROUND_Y_OFFSET = -0.15
+const HF_SIZE = 600
+const HF_RES = 200
+const HF_RETHRESHOLD = 150
+const GROUND_SNAP = 8
+
+const scene = new THREE.Scene()
+scene.background = new THREE.Color('#ddc8a8')
+scene.fog = new THREE.Fog('#ddc8a8', 80, 250)
+
+const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 500)
+camera.position.set(-8, 5, 0)
+
+const renderer = new THREE.WebGPURenderer({ antialias: true })
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
+renderer.setSize(innerWidth, innerHeight)
+renderer.shadowMap.enabled = true
+renderer.shadowMap.type = THREE.PCFSoftShadowMap
+document.body.appendChild(renderer.domElement)
+await renderer.init()
+
+const stats = new Stats({ trackGPU: true })
+document.body.appendChild(stats.dom)
+stats.dom.style.display = 'none'
+stats.init(renderer)
+
+const perlin = new ImprovedNoise()
+const terrainSettings = { frequency: 0.004, amplitude: 14 }
+
+// ─── Biome System ──────────────────────────────────────────────────────
+const BIOME_BOUNDARY = 0          // x=0 divides desert (x>0) from forest (x<0)
+const BIOME_TRANSITION = 80       // width of blending zone
+const BIOME_DESERT = 0, BIOME_FOREST = 1
+
+function getBiomeBlend(x) {
+  // Returns 0 = pure desert, 1 = pure forest
+  const t = (-x - BIOME_BOUNDARY) / BIOME_TRANSITION
+  return Math.max(0, Math.min(1, t * 0.5 + 0.5))
+}
+
+function getTerrainHeight(x, z) {
+  const s = terrainSettings.frequency
+  const a = terrainSettings.amplitude
+  const blend = getBiomeBlend(x)
+  // Desert terrain — flatter, rolling dunes
+  let hDesert = 0
+  hDesert += perlin.noise(x * s, 0, z * s) * a
+  hDesert += perlin.noise(x * s * 2, 1, z * s * 2) * a * 0.5
+  hDesert += perlin.noise(x * s * 4, 2, z * s * 4) * a * 0.25
+  // Forest terrain — hillier, more varied with steeper valleys
+  let hForest = 0
+  const sf = s * 0.8
+  hForest += perlin.noise(x * sf, 5, z * sf) * a * 1.2
+  hForest += perlin.noise(x * sf * 2.5, 6, z * sf * 2.5) * a * 0.6
+  hForest += perlin.noise(x * sf * 5, 7, z * sf * 5) * a * 0.15
+  hForest += 2.0 // forest is slightly higher on average
+  return hDesert * (1 - blend) + hForest * blend
+}
+
+const biomeSettings = {
+  waterLevel: -5.0, sandEnd: 2.0, dirtEnd: 6.0, transitionWidth: 1.8,
+  sandColor1: '#d4a656', sandColor2: '#e8c47a',
+  dirtColor1: '#c48840', dirtColor2: '#b07030',
+  grassColor1: '#a07048', grassColor2: '#8a6040',
+  waterColor: '#7ecfcf', waterColorDeep: '#4a8a8a',
+}
+
+// Forest biome colors
+const forestBiome = {
+  groundColor1: '#4a7a3a', groundColor2: '#3d6830',
+  dirtColor1: '#6b5a3e', dirtColor2: '#584a32',
+  hillColor1: '#3a6a28', hillColor2: '#2d5520',
+  fogColor: '#b8cca8', waterColor: '#5aa89a', waterColorDeep: '#3a7868',
+}
+const desertFogColor = new THREE.Color('#ddc8a8')
+const forestFogColor = new THREE.Color(forestBiome.fogColor)
+
+const ambientLight = new THREE.AmbientLight(0xfff0d0, 0.6)
+scene.add(ambientLight)
+const redAmbient = new THREE.AmbientLight(0xcc3318, 0.8)
+scene.add(redAmbient)
+const shadowRedFill = new THREE.HemisphereLight(0xfff4e8, 0xcc8855, 0.7)
+scene.add(shadowRedFill)
+
+const dirLight = new THREE.DirectionalLight(0xfff0d8, 3.5)
+dirLight.position.set(10, 20, 10)
+dirLight.castShadow = true
+dirLight.shadow.mapSize.set(2048, 2048)
+dirLight.shadow.camera.near = 0.5
+dirLight.shadow.camera.far = 100
+dirLight.shadow.camera.left = -60
+dirLight.shadow.camera.right = 60
+dirLight.shadow.camera.top = 60
+dirLight.shadow.camera.bottom = -60
+dirLight.shadow.bias = -0.001
+dirLight.shadow.normalBias = 0.02
+scene.add(dirLight)
+scene.add(dirLight.target)
+
+const lightSettings = { azimuth: 320, elevation: 45 }
+
+const waterLevel = uniform(biomeSettings.waterLevel)
+const sandEnd = uniform(biomeSettings.sandEnd)
+const dirtEnd = uniform(biomeSettings.dirtEnd)
+const transitionWidth = uniform(biomeSettings.transitionWidth)
+const sandColor1 = uniform(new THREE.Color(biomeSettings.sandColor1))
+const sandColor2 = uniform(new THREE.Color(biomeSettings.sandColor2))
+const dirtColor1 = uniform(new THREE.Color(biomeSettings.dirtColor1))
+const dirtColor2 = uniform(new THREE.Color(biomeSettings.dirtColor2))
+const grassColor1 = uniform(new THREE.Color(biomeSettings.grassColor1))
+const grassColor2 = uniform(new THREE.Color(biomeSettings.grassColor2))
+const waterColor = uniform(new THREE.Color(biomeSettings.waterColor))
+const waterColorDeep = uniform(new THREE.Color(biomeSettings.waterColorDeep))
+
+// Forest biome uniforms
+const fGroundColor1 = uniform(new THREE.Color(forestBiome.groundColor1))
+const fGroundColor2 = uniform(new THREE.Color(forestBiome.groundColor2))
+const fDirtColor1 = uniform(new THREE.Color(forestBiome.dirtColor1))
+const fDirtColor2 = uniform(new THREE.Color(forestBiome.dirtColor2))
+const fHillColor1 = uniform(new THREE.Color(forestBiome.hillColor1))
+const fHillColor2 = uniform(new THREE.Color(forestBiome.hillColor2))
+const uBiomeBoundary = uniform(BIOME_BOUNDARY)
+const uBiomeTransition = uniform(BIOME_TRANSITION)
+
+const groundMat = new THREE.MeshStandardNodeMaterial({ roughness: 0.85, metalness: 0 })
+groundMat.colorNode = Fn(() => {
+  const wx = positionWorld.x; const wz = positionWorld.z; const h = positionWorld.y
+  const n = mx_noise_float(vec3(wx.mul(0.15), float(0), wz.mul(0.15))).mul(0.5).add(0.5)
+  const tn = mx_noise_float(vec3(wx.mul(0.06), float(0), wz.mul(0.06))).mul(transitionWidth)
+  const adjustedH = h.add(tn)
+  const halfTW = transitionWidth.mul(0.5)
+  const sandT = smoothstep(sandEnd.sub(halfTW), sandEnd.add(halfTW), adjustedH)
+  const grassT = smoothstep(dirtEnd.sub(halfTW), dirtEnd.add(halfTW), adjustedH)
+  // Desert surface
+  const sand = mix(sandColor1, sandColor2, n)
+  const dirt = mix(dirtColor1, dirtColor2, n)
+  const grass = mix(grassColor1, grassColor2, n)
+  const desertSurface = mix(mix(sand, dirt, sandT), grass, grassT)
+  // Forest surface — grass/dirt/hill by height
+  const fGrass = mix(fGroundColor1, fGroundColor2, n)
+  const fDirt = mix(fDirtColor1, fDirtColor2, n)
+  const fHill = mix(fHillColor1, fHillColor2, n)
+  const fDirtT = smoothstep(sandEnd.sub(halfTW), sandEnd.add(halfTW), adjustedH)
+  const fHillT = smoothstep(dirtEnd.sub(halfTW), dirtEnd.add(halfTW), adjustedH)
+  const forestSurface = mix(mix(fDirt, fGrass, fDirtT), fHill, fHillT)
+  // Biome blend — smooth transition at x boundary
+  const biomeT = clamp(wx.negate().sub(uBiomeBoundary).div(uBiomeTransition).mul(0.5).add(0.5), 0.0, 1.0)
+  // Add noise to biome edge for organic transition
+  const edgeNoise = mx_noise_float(vec3(wx.mul(0.02), float(3), wz.mul(0.02))).mul(0.15)
+  const biomeBlend = clamp(biomeT.add(edgeNoise), 0.0, 1.0)
+  const surfaceColor = mix(desertSurface, forestSurface, biomeBlend)
+  const underwaterDarken = smoothstep(waterLevel.add(float(0.5)), waterLevel.sub(float(1.5)), h)
+  const underwaterTint = vec3(0.08, 0.12, 0.1)
+  return mix(surfaceColor, underwaterTint, underwaterDarken)
+})()
+
+const groundGeo = new THREE.PlaneGeometry(GROUND_SIZE, GROUND_SIZE, GROUND_SEGMENTS, GROUND_SEGMENTS)
+const groundMesh = new THREE.Mesh(groundGeo, groundMat)
+groundMesh.rotation.x = -Math.PI / 2
+groundMesh.receiveShadow = true
+scene.add(groundMesh)
+
+// Double-buffered ground update — compute ALL vertices off-screen, then swap in one frame
+let _groundPending = false
+let _groundTargetX = 0, _groundTargetZ = 0
+let _groundRow = 0
+let _groundBuffer = null // off-screen Float32Array for Z values
+const GROUND_ROWS_PER_FRAME = 80 // more rows per frame since we're not uploading each tick
+const _groundSegsP1 = GROUND_SEGMENTS + 1
+
+function updateGround(px, pz) {
+  _groundTargetX = px; _groundTargetZ = pz
+  _groundRow = 0
+  _groundPending = true
+  // Pre-allocate buffer for new Z values — do NOT move mesh yet
+  if (!_groundBuffer || _groundBuffer.length !== _groundSegsP1 * _groundSegsP1) {
+    _groundBuffer = new Float32Array(_groundSegsP1 * _groundSegsP1)
+  }
+}
+
+function tickGround() {
+  if (!_groundPending) return
+  const posAttr = groundGeo.attributes.position
+  const endRow = Math.min(_groundSegsP1, _groundRow + GROUND_ROWS_PER_FRAME)
+  const px = _groundTargetX, pz = _groundTargetZ
+  // Build into off-screen buffer — no GPU upload, no mesh move
+  for (let row = _groundRow; row < endRow; row++) {
+    for (let col = 0; col < _groundSegsP1; col++) {
+      const idx = row * _groundSegsP1 + col
+      const lx = posAttr.getX(idx); const ly = posAttr.getY(idx)
+      _groundBuffer[idx] = getTerrainHeight(lx + px, pz - ly) + GROUND_Y_OFFSET
+    }
+  }
+  _groundRow = endRow
+  // Only when ALL rows are done: copy buffer → geometry, move mesh, update normals — single frame swap
+  if (_groundRow >= _groundSegsP1) {
+    for (let i = 0; i < _groundSegsP1 * _groundSegsP1; i++) {
+      posAttr.setZ(i, _groundBuffer[i])
+    }
+    posAttr.needsUpdate = true
+    groundMesh.position.x = px; groundMesh.position.z = pz
+    groundGeo.computeVertexNormals()
+    _groundPending = false
+  }
+}
+
+function updateGroundSync(px, pz) {
+  groundMesh.position.x = px; groundMesh.position.z = pz
+  const posAttr = groundGeo.attributes.position
+  const total = posAttr.count
+  for (let i = 0; i < total; i++) {
+    const lx = posAttr.getX(i); const ly = posAttr.getY(i)
+    posAttr.setZ(i, getTerrainHeight(lx + px, pz - ly) + GROUND_Y_OFFSET)
+  }
+  posAttr.needsUpdate = true
+  groundGeo.computeVertexNormals()
+}
+
+updateGroundSync(0, 0)
+
+const waterMat = new THREE.MeshStandardNodeMaterial({
+  transparent: true, opacity: 0.55, roughness: 0.05, metalness: 0.3, side: THREE.DoubleSide,
+})
+waterMat.colorNode = Fn(() => {
+  const wx = positionWorld.x; const wz = positionWorld.z
+  const n = mx_noise_float(vec3(wx.mul(0.04).add(time.mul(0.15)), float(0), wz.mul(0.04).add(time.mul(0.1)))).mul(0.5).add(0.5)
+  return mix(waterColorDeep, waterColor, n)
+})()
+
+const waterGeo = new THREE.PlaneGeometry(GROUND_SIZE + 100, GROUND_SIZE + 100, 2, 2)
+const waterMesh = new THREE.Mesh(waterGeo, waterMat)
+waterMesh.rotation.x = -Math.PI / 2
+waterMesh.position.y = biomeSettings.waterLevel
+waterMesh.receiveShadow = true
+scene.add(waterMesh)
+
+const physicsWorld = new RAPIER.World({ x: 0, y: -9.81, z: 0 })
+const FIXED_DT = 1 / 60
+physicsWorld.timestep = FIXED_DT
+
+let hfBody = null, hfCollider = null, hfCenter = { x: 0, z: 0 }
+
+// Heightfield: build rows incrementally across frames, then swap in one go
+let _hfPending = false
+let _hfCx = 0, _hfCz = 0
+let _hfHeights = null
+let _hfRow = 0
+const HF_ROWS_PER_FRAME = 20 // reduced from 40 to spread load more
+
+function createHeightfield(cx, cz) {
+  _hfCx = cx; _hfCz = cz
+  _hfHeights = new Float32Array((HF_RES + 1) * (HF_RES + 1))
+  _hfRow = 0
+  _hfPending = true
+}
+
+// Staged finalization — split remove/create across 3 frames to avoid single-frame spike
+let _hfFinalizeStage = 0
+let _hfStagedHeights = null, _hfStagedCx = 0, _hfStagedCz = 0
+
+function _finalizeHeightfield() {
+  // Don't do it all at once — stage it
+  _hfStagedHeights = _hfHeights
+  _hfStagedCx = _hfCx; _hfStagedCz = _hfCz
+  _hfFinalizeStage = 1
+  _hfPending = false
+  _hfHeights = null
+}
+
+function tickHeightfieldFinalize() {
+  if (_hfFinalizeStage === 0) return
+  if (_hfFinalizeStage === 1) {
+    // Frame 1: remove old collider
+    if (hfCollider) { try { physicsWorld.removeCollider(hfCollider, false) } catch(e){} hfCollider = null }
+    _hfFinalizeStage = 2; return
+  }
+  if (_hfFinalizeStage === 2) {
+    // Frame 2: remove old body
+    if (hfBody) { try { physicsWorld.removeRigidBody(hfBody) } catch(e){} hfBody = null }
+    _hfFinalizeStage = 3; return
+  }
+  if (_hfFinalizeStage === 3) {
+    // Frame 3: create new body + collider
+    hfBody = physicsWorld.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(_hfStagedCx, 0, _hfStagedCz))
+    hfCollider = physicsWorld.createCollider(
+      RAPIER.ColliderDesc.heightfield(HF_RES, HF_RES, _hfStagedHeights, { x: HF_SIZE, y: 1, z: HF_SIZE }).setFriction(0.8).setRestitution(0.1), hfBody)
+    hfCenter = { x: _hfStagedCx, z: _hfStagedCz }
+    _hfStagedHeights = null
+    _hfFinalizeStage = 0
+  }
+}
+
+function tickHeightfield() {
+  if (!_hfPending) return
+  const endRow = Math.min(HF_RES + 1, _hfRow + HF_ROWS_PER_FRAME)
+  for (let row = _hfRow; row < endRow; row++) {
+    for (let col = 0; col <= HF_RES; col++) {
+      const wx = _hfCx + (col / HF_RES - 0.5) * HF_SIZE
+      const wz = _hfCz + (row / HF_RES - 0.5) * HF_SIZE
+      _hfHeights[row + col * (HF_RES + 1)] = getTerrainHeight(wx, wz) + GROUND_Y_OFFSET
+    }
+  }
+  _hfRow = endRow
+  if (_hfRow > HF_RES) _finalizeHeightfield()
+}
+
+function createHeightfieldSync(cx, cz) {
+  createHeightfield(cx, cz)
+  while (_hfPending) {
+    _hfRow = HF_RES + 1
+    for (let row = 0; row <= HF_RES; row++) {
+      for (let col = 0; col <= HF_RES; col++) {
+        const wx = _hfCx + (col / HF_RES - 0.5) * HF_SIZE
+        const wz = _hfCz + (row / HF_RES - 0.5) * HF_SIZE
+        _hfHeights[row + col * (HF_RES + 1)] = getTerrainHeight(wx, wz) + GROUND_Y_OFFSET
+      }
+    }
+    _finalizeHeightfield()
+  }
+}
+
+createHeightfieldSync(0, 0)
+
+setLoading('Loading models…', 40)
+const dracoLoader = new DRACOLoader()
+dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/')
+const gltfLoader = new GLTFLoader()
+gltfLoader.setDRACOLoader(dracoLoader)
+
+function loadModelFromUploaded(name) {
+  // 1) Look for a model injected at runtime via window.UPLOADED_3D_MODELS
+  //    (this is how the original Omma editor supplied models — it isn't
+  //    present in a plain exported zip, so this will normally just fall
+  //    through to option 2 below).
+  const modelData = window.UPLOADED_3D_MODELS?.find(m => m.name === name)
+  const url = modelData ? modelData.dataUrl : `./models/${name}`
+
+  return new Promise((resolve, reject) => {
+    gltfLoader.load(url, resolve, (p) => {
+      if (p.total > 0) setLoading(`Loading ${name}… ${Math.round((p.loaded / p.total) * 100)}%`, 40 + Math.round((p.loaded / p.total) * 25))
+    }, reject)
+  })
+}
+
+function createFallbackChassis() {
+  const group = new THREE.Group()
+  const bodyGeo = new THREE.BoxGeometry(2.4, 0.5, 1.2)
+  const bodyMat = new THREE.MeshStandardMaterial({ color: '#cc3333', roughness: 0.4, metalness: 0.3 })
+  const body = new THREE.Mesh(bodyGeo, bodyMat); body.position.y = 0.05; body.castShadow = true; group.add(body)
+  const cabGeo = new THREE.BoxGeometry(1.2, 0.45, 1.0)
+  const cabMat = new THREE.MeshStandardMaterial({ color: '#882222', roughness: 0.3, metalness: 0.2 })
+  const cab = new THREE.Mesh(cabGeo, cabMat); cab.position.set(0.1, 0.5, 0); cab.castShadow = true; group.add(cab)
+  const windGeo = new THREE.BoxGeometry(0.05, 0.35, 0.85)
+  const windMat = new THREE.MeshStandardMaterial({ color: '#88ccff', roughness: 0.1, metalness: 0.5, transparent: true, opacity: 0.6 })
+  const wind = new THREE.Mesh(windGeo, windMat); wind.position.set(0.62, 0.45, 0); group.add(wind)
+  const bumpGeo = new THREE.BoxGeometry(0.15, 0.25, 1.15)
+  const bumpMat = new THREE.MeshStandardMaterial({ color: '#333333', roughness: 0.7 })
+  const fb = new THREE.Mesh(bumpGeo, bumpMat); fb.position.set(1.25, -0.1, 0); fb.castShadow = true; group.add(fb)
+  const rb = new THREE.Mesh(bumpGeo, bumpMat); rb.position.set(-1.25, -0.1, 0); rb.castShadow = true; group.add(rb)
+  return { scene: group }
+}
+
+function createFallbackTire() {
+  const group = new THREE.Group()
+  const tireGeo = new THREE.CylinderGeometry(0.15, 0.15, 0.1, 16); tireGeo.rotateX(Math.PI / 2)
+  const tire = new THREE.Mesh(tireGeo, new THREE.MeshStandardMaterial({ color: '#222222', roughness: 0.9 }))
+  tire.castShadow = true; group.add(tire)
+  const hubGeo = new THREE.CylinderGeometry(0.07, 0.07, 0.11, 8); hubGeo.rotateX(Math.PI / 2)
+  group.add(new THREE.Mesh(hubGeo, new THREE.MeshStandardMaterial({ color: '#888888', roughness: 0.3, metalness: 0.6 })))
+  return { scene: group }
+}
+
+let chassisGltf, tireGltf
+let usingFallbackChassis = false, usingFallbackTire = false
+
+const [chassisResult, tireResult] = await Promise.allSettled([
+  loadModelFromUploaded('chassis.glb'),
+  loadModelFromUploaded('tire.glb'),
+])
+
+if (chassisResult.status === 'fulfilled') {
+  chassisGltf = chassisResult.value
+} else {
+  console.warn('chassis.glb not found (place it in ./models/chassis.glb) — using procedural fallback:', chassisResult.reason?.message)
+  chassisGltf = createFallbackChassis()
+  usingFallbackChassis = true
+}
+
+if (tireResult.status === 'fulfilled') {
+  tireGltf = tireResult.value
+} else {
+  console.warn('tire.glb not found (place it in ./models/tire.glb) — using procedural fallback:', tireResult.reason?.message)
+  tireGltf = createFallbackTire()
+  usingFallbackTire = true
+}
+
+setLoading('Models loaded', 75)
+
+const CHASSIS_HW = 1.0, CHASSIS_HH = 0.35, CHASSIS_HD = 0.6
+const startH = getTerrainHeight(0, 0) + 3
+const chassisBody = physicsWorld.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(0, startH, 0).setCanSleep(false))
+
+physicsWorld.createCollider(
+  RAPIER.ColliderDesc.cuboid(CHASSIS_HW, CHASSIS_HH, CHASSIS_HD)
+    .setMassProperties(2.5, { x: 0, y: -0.3, z: 0 }, { x: 0.4, y: 1.1, z: 0.9 }, { x: 0, y: 0, z: 0, w: 1 })
+    .setFriction(0.5), chassisBody)
+
+const chassisGroup = new THREE.Group()
+const chassisDebugBox = new THREE.Mesh(
+  new THREE.BoxGeometry(CHASSIS_HW * 2, CHASSIS_HH * 2, CHASSIS_HD * 2),
+  new THREE.MeshStandardMaterial({ color: '#cc2222', transparent: true, opacity: 0.4 }))
+chassisDebugBox.visible = false
+chassisGroup.add(chassisDebugBox)
+
+const chassisModel = chassisGltf.scene
+// The 90° yaw and 3.3x scale are calibrated for the real chassis.glb, which
+// (like most exported car models) faces forward along local -Z, and is
+// modeled at a small unit scale. The procedural fallback box is already
+// built facing forward along local +X (matching the vehicle's actual forward
+// axis) and already sized to match the physics collider (CHASSIS_HW/HH/HD
+// below) — applying the same rotation/scale to it was what made the car
+// look sideways-and-oversized and clip through buildings.
+if (!usingFallbackChassis) {
+  chassisModel.rotation.y = Math.PI / 2
+  chassisModel.scale.setScalar(3.3)
+}
+chassisModel.traverse((c) => {
+  if (c.isMesh) {
+    c.castShadow = true
+    c.receiveShadow = true
+    // Ensure no mesh has a default white material
+    if (!c.material || (c.material.isMeshStandardMaterial && c.material.color.getHex() === 0xffffff && !c.material.map)) {
+      c.material = new THREE.MeshStandardMaterial({ color: '#cc3333', roughness: 0.4, metalness: 0.3 })
+    }
+  }
+})
+chassisGroup.add(chassisModel)
+scene.add(chassisGroup)
+
+const vehicle = physicsWorld.createVehicleController(chassisBody)
+const WHEEL_R = 0.45, WHEEL_W = 0.3, SUSP_REST = 0.6
+const WHEEL_OFF = { x: 1.0, y: 0.1, z: 0.8 }
+const wheelConns = [
+  { x: WHEEL_OFF.x, y: WHEEL_OFF.y, z: WHEEL_OFF.z },
+  { x: WHEEL_OFF.x, y: WHEEL_OFF.y, z: -WHEEL_OFF.z },
+  { x: -WHEEL_OFF.x, y: WHEEL_OFF.y, z: WHEEL_OFF.z },
+  { x: -WHEEL_OFF.x, y: WHEEL_OFF.y, z: -WHEEL_OFF.z },
+]
+const dirCs = { x: 0, y: -1, z: 0 }, axleCs = { x: 0, y: 0, z: 1 }
+const wheelGeo = new THREE.CylinderGeometry(WHEEL_R, WHEEL_R, WHEEL_W, 16)
+wheelGeo.rotateX(Math.PI / 2)
+const wheelDebugMat = new THREE.MeshStandardMaterial({ color: '#222222', transparent: true, opacity: 0.4 })
+const wheelDebugMeshes = [], wheelMeshes = [], wheelSpins = [0, 0, 0, 0]
+
+for (let i = 0; i < 4; i++) {
+  vehicle.addWheel(wheelConns[i], dirCs, axleCs, SUSP_REST, WHEEL_R)
+  vehicle.setWheelFrictionSlip(i, 1.5)
+  vehicle.setWheelSuspensionStiffness(i, 12)
+  vehicle.setWheelMaxSuspensionForce(i, 300)
+  vehicle.setWheelMaxSuspensionTravel(i, 1.2)
+  vehicle.setWheelSuspensionCompression(i, 1.8)
+  vehicle.setWheelSuspensionRelaxation(i, 4.5)
+  vehicle.setWheelSideFrictionStiffness(i, 2)
+
+  const dm = new THREE.Mesh(wheelGeo, wheelDebugMat); dm.visible = false
+  scene.add(dm); wheelDebugMeshes.push(dm)
+
+  const tc = new THREE.Group()
+  const tm = tireGltf.scene.clone()
+  tm.traverse((c) => {
+    if (c.isMesh) {
+      c.castShadow = true
+      c.receiveShadow = true
+      if (!c.material || (c.material.isMeshStandardMaterial && c.material.color.getHex() === 0xffffff && !c.material.map)) {
+        c.material = new THREE.MeshStandardMaterial({ color: '#222222', roughness: 0.9, metalness: 0.1 })
+      }
+    }
+  })
+  // Mirroring rotation for left/right sides — only needed for a real
+  // tire.glb (which may be authored with its axle along a different local
+  // axis, e.g. facing "outward" rather than along Z). The procedural
+  // fallback cylinder above is already built with its axle baked onto local
+  // Z (matching axleCs / SPIN_AXIS), so rotating it here would twist that
+  // axle onto X and make the wheel spin like a flat disc/cap instead of
+  // rolling — skip the mirror for the fallback, but keep the 3x scale
+  // either way (the fallback cylinder is deliberately built at 1/3 size).
+  if (!usingFallbackTire) tm.rotation.y = (i % 2 === 0) ? -Math.PI / 2 : Math.PI / 2
+  tm.scale.setScalar(3)
+  tc.add(tm); scene.add(tc); wheelMeshes.push(tc)
+}
+
+const MAX_DBG_VERTS = 200_000
+const dbgPosArr = new Float32Array(MAX_DBG_VERTS * 3)
+const dbgColArr = new Float32Array(MAX_DBG_VERTS * 3)
+const dbgGeo = new THREE.BufferGeometry()
+const dbgPosAttr = new THREE.Float32BufferAttribute(dbgPosArr, 3).setUsage(THREE.DynamicDrawUsage)
+const dbgColAttr = new THREE.Float32BufferAttribute(dbgColArr, 3).setUsage(THREE.DynamicDrawUsage)
+dbgGeo.setAttribute('position', dbgPosAttr)
+dbgGeo.setAttribute('color', dbgColAttr)
+dbgGeo.setDrawRange(0, 0)
+const dbgLines = new THREE.LineSegments(dbgGeo, new THREE.LineBasicMaterial({ vertexColors: true }))
+dbgLines.visible = false
+scene.add(dbgLines)
+
+function updateDebug() {
+  const { vertices, colors } = physicsWorld.debugRender()
+  const n = vertices.length / 3
+  if (n > MAX_DBG_VERTS) return
+  dbgPosArr.set(vertices)
+  for (let i = 0; i < n; i++) {
+    dbgColArr[i * 3] = colors[i * 4]
+    dbgColArr[i * 3 + 1] = colors[i * 4 + 1]
+    dbgColArr[i * 3 + 2] = colors[i * 4 + 2]
+  }
+  dbgGeo.attributes.position.needsUpdate = true
+  dbgGeo.attributes.color.needsUpdate = true
+  dbgGeo.setDrawRange(0, n)
+}
+
+const orbit = new OrbitControls(camera, renderer.domElement)
+orbit.enabled = false; orbit.enableDamping = true
+
+const keys = {}
+addEventListener('keydown', (e) => {
+  keys[e.code] = true
+  if (e.code === 'KeyP') { carSettings.debug = !carSettings.debug; setDebugVisible(carSettings.debug) }
+  if (e.code === 'KeyO') {
+    carSettings.orbitControls = !carSettings.orbitControls
+    orbit.enabled = carSettings.orbitControls
+    if (carSettings.orbitControls) orbit.target.copy(chassisPos)
+  }
+  if (e.code === 'KeyU') {
+    if (upgradeShopOpen) closeUpgradeShop()
+    else openUpgradeShop()
+  }
+  if (e.code === 'Escape' && upgradeShopOpen) closeUpgradeShop()
+})
+addEventListener('keyup', (e) => { keys[e.code] = false })
+
+const carSettings = {
+  steer: 0.5, acceleration: 5, deceleration: 0.23, maxSpeed: 15,
+  boostMultiplier: 2.5, jumpForce: 6, jumpCrouchTime: 0.05,
+  flipForce: 2, grip: 2, tireLerp: 0.3, debug: false, orbitControls: false,
+}
+
+const coinSettings = {
+  spawnChance: 0.18, radius: 0.4, height: 0.08, color1: '#ffd700', color2: '#ffaa00',
+  bobSpeed: 2, bobHeight: 0.3, spinSpeed: 3, collectDistance: 2.5,
+  glowColor: '#fff4b0', glowSize: 1.2,
+}
+let coinScore = 0
+
+const splashSettings = {
+  enabled: true, emitRate: 0.5, minSpeed: 0.8, particleSize: 8,
+  sizeVariance: 6, lifetime: 0.6, lifetimeVariance: 0.4, opacity: 0.7,
+  spread: 0.6, velocitySpread: 2.0, upwardForce: 4.0, drag: 0.94,
+  colorR: 0.45, colorG: 0.75, colorB: 0.78,
+}
+
+const dustSettings = {
+  enabled: true, emitRate: 0.3, minSpeed: 1.5, particleSize: 6,
+  sizeVariance: 8, lifetime: 0.8, lifetimeVariance: 1.2, opacity: 0.6,
+  spread: 0.8, velocitySpread: 1.5, upwardForce: 2.0, drag: 0.97,
+  colorR: 0.78, colorG: 0.38, colorB: 0.08,
+  colorR2: 0.55, colorG2: 0.22, colorB2: 0.04,
+}
+
+const cameraSettings = { distance: 8, height: 4, lookHeight: 1, smoothing: 0.05 }
+const fogSettings = { color: '#ddc8a8', near: 80, far: 250 }
+const shadowSettings = { enabled: true, resolution: 2048, bias: -0.001, normalBias: 0.02 }
+
+function setDebugVisible(v) {
+  chassisDebugBox.visible = v
+  for (const m of wheelDebugMeshes) m.visible = v
+  dbgLines.visible = v
+}
+
+function rebuildAll() {
+  updateGround(lastGroundX, lastGroundZ)
+  createHeightfieldSync(hfCenter.x, hfCenter.z)
+}
+
+/* ─── Build GUI Folders ──────────────────────────────────────────────── */
+const carF = createFolder('Car')
+carF.addSlider('Steering', carSettings, 'steer', 0.1, 1.2, 0.01)
+carF.addSlider('Acceleration', carSettings, 'acceleration', 1, 20, 0.5)
+carF.addSlider('Deceleration', carSettings, 'deceleration', 0.05, 1, 0.01)
+carF.addSlider('Max Speed', carSettings, 'maxSpeed', 1, 30, 0.1)
+carF.addSlider('Boost', carSettings, 'boostMultiplier', 1, 8, 0.1)
+carF.addSlider('Jump Force', carSettings, 'jumpForce', 1, 20, 0.5)
+carF.addSlider('Jump Crouch', carSettings, 'jumpCrouchTime', 0.05, 0.5, 0.01)
+carF.addSlider('Flip Force', carSettings, 'flipForce', 1, 10, 0.5)
+carF.addSlider('Grip', carSettings, 'grip', 0.05, 5, 0.05)
+carF.addSlider('Tire Lerp', carSettings, 'tireLerp', 0.01, 1, 0.01)
+carF.addCheckbox('Debug (P)', carSettings, 'debug', setDebugVisible)
+carF.addCheckbox('Orbit (O)', carSettings, 'orbitControls', (v) => {
+  orbit.enabled = v; if (v) orbit.target.copy(chassisPos)
+})
+
+const camF = createFolder('Camera')
+camF.addSlider('Distance', cameraSettings, 'distance', 3, 25, 0.5)
+camF.addSlider('Height', cameraSettings, 'height', 1, 15, 0.5)
+camF.addSlider('Look Height', cameraSettings, 'lookHeight', 0, 5, 0.1)
+camF.addSlider('Smoothing', cameraSettings, 'smoothing', 0.01, 0.2, 0.005)
+camF.addSlider('FOV', camera, 'fov', 30, 110, 1, () => camera.updateProjectionMatrix())
+
+const terrF = createFolder('Terrain')
+terrF.addSlider('Frequency', terrainSettings, 'frequency', 0.005, 0.06, 0.001, rebuildAll)
+terrF.addSlider('Amplitude', terrainSettings, 'amplitude', 0, 15, 0.5, rebuildAll)
+
+const shadowColorSettings = {
+  shadowColor: '#000000',
+  shadowAmbient: '#' + redAmbient.color.getHexString(),
+  shadowHemiSky: '#' + shadowRedFill.color.getHexString(),
+  shadowHemiGround: '#' + shadowRedFill.groundColor.getHexString(),
+  shadowAmbientIntensity: redAmbient.intensity,
+  shadowHemiIntensity: shadowRedFill.intensity,
+}
+
+const lightF = createFolder('Lighting')
+lightF.addSlider('Sun Azimuth', lightSettings, 'azimuth', 0, 360, 1)
+lightF.addSlider('Sun Elevation', lightSettings, 'elevation', 10, 85, 1)
+lightF.addCheckbox('Shadows', shadowSettings, 'enabled', (v) => {
+  renderer.shadowMap.enabled = v; dirLight.castShadow = v
+})
+lightF.addSelect('Shadow Res', shadowSettings, 'resolution',
+  { '512': 512, '1024': 1024, '2048': 2048, '4096': 4096 },
+  (v) => { dirLight.shadow.mapSize.set(v, v); if (dirLight.shadow.map) { dirLight.shadow.map.dispose(); dirLight.shadow.map = null } })
+
+lightF.addColor('Shadow Ambient', shadowColorSettings, 'shadowAmbient', (v) => {
+  redAmbient.color.set(v)
+})
+lightF.addSlider('Ambient Intensity', shadowColorSettings, 'shadowAmbientIntensity', 0, 2, 0.05, (v) => {
+  redAmbient.intensity = v
+})
+lightF.addColor('Hemi Sky', shadowColorSettings, 'shadowHemiSky', (v) => {
+  shadowRedFill.color.set(v)
+})
+lightF.addColor('Hemi Ground', shadowColorSettings, 'shadowHemiGround', (v) => {
+  shadowRedFill.groundColor.set(v)
+})
+lightF.addSlider('Hemi Intensity', shadowColorSettings, 'shadowHemiIntensity', 0, 2, 0.05, (v) => {
+  shadowRedFill.intensity = v
+})
+
+const fogF = createFolder('Fog')
+fogF.addColor('Color', fogSettings, 'color', (v) => { scene.fog.color.set(v); scene.background.set(v) })
+fogF.addSlider('Near', fogSettings, 'near', 10, 200, 1, (v) => { scene.fog.near = v })
+fogF.addSlider('Far', fogSettings, 'far', 50, 500, 1, (v) => { scene.fog.far = v })
+
+const biomeF = createFolder('Biomes')
+biomeF.addSlider('Water Level', biomeSettings, 'waterLevel', -5, 5, 0.1, (v) => { waterLevel.value = v; waterMesh.position.y = v })
+biomeF.addSlider('Sand→Dirt', biomeSettings, 'sandEnd', -3, 5, 0.1, (v) => { sandEnd.value = v })
+biomeF.addSlider('Dirt→Grass', biomeSettings, 'dirtEnd', -1, 8, 0.1, (v) => { dirtEnd.value = v })
+biomeF.addSlider('Transition', biomeSettings, 'transitionWidth', 0.1, 5, 0.1, (v) => { transitionWidth.value = v })
+biomeF.addColor('Sand 1', biomeSettings, 'sandColor1', (v) => sandColor1.value.set(v))
+biomeF.addColor('Sand 2', biomeSettings, 'sandColor2', (v) => sandColor2.value.set(v))
+biomeF.addColor('Dirt 1', biomeSettings, 'dirtColor1', (v) => dirtColor1.value.set(v))
+biomeF.addColor('Dirt 2', biomeSettings, 'dirtColor2', (v) => dirtColor2.value.set(v))
+biomeF.addColor('Grass 1', biomeSettings, 'grassColor1', (v) => grassColor1.value.set(v))
+biomeF.addColor('Grass 2', biomeSettings, 'grassColor2', (v) => grassColor2.value.set(v))
+biomeF.addColor('Water', biomeSettings, 'waterColor', (v) => waterColor.value.set(v))
+biomeF.addColor('Water Deep', biomeSettings, 'waterColorDeep', (v) => waterColorDeep.value.set(v))
+
+const coinF = createFolder('Car')
+// We'll add coin counter to HUD instead
+
+const dustF = createFolder('Dust')
+dustF.addCheckbox('Enabled', dustSettings, 'enabled')
+dustF.addSlider('Emit Rate', dustSettings, 'emitRate', 0.1, 3, 0.1)
+dustF.addSlider('Min Speed', dustSettings, 'minSpeed', 0.5, 5, 0.1)
+dustF.addSlider('Size', dustSettings, 'particleSize', 4, 40, 1)
+dustF.addSlider('Lifetime', dustSettings, 'lifetime', 0.2, 3, 0.1)
+dustF.addSlider('Opacity', dustSettings, 'opacity', 0.1, 1, 0.05)
+dustF.addSlider('Spread', dustSettings, 'spread', 0.1, 3, 0.1)
+dustF.addSlider('Upward', dustSettings, 'upwardForce', 0.5, 6, 0.1)
+dustF.addSlider('Drag', dustSettings, 'drag', 0.9, 1, 0.005)
+
+// ─── HUD ────────────────────────────────────────────────────────────────────
+const hud = document.createElement('div')
+hud.style.cssText = `
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  background: rgba(12, 16, 24, 0.7); backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.07); border-radius: 12px;
+  font-family: 'Inter', system-ui, sans-serif; color: rgba(200, 220, 240, 0.9);
+  font-size: 12px; padding: 10px 18px; display: flex; gap: 14px;
+  z-index: 1000; user-select: none;
+`
+hud.innerHTML = `
+  <span><b>WASD</b> Drive</span><span style="opacity:0.3">·</span>
+  <span><b>Shift</b> Boost</span><span style="opacity:0.3">·</span>
+  <span><b>Space</b> Jump</span><span style="opacity:0.3">·</span>
+  <span><b>R</b> Reset</span><span style="opacity:0.3">·</span>
+  <span><b>P</b> Debug</span><span style="opacity:0.3">·</span>
+  <span><b>O</b> Orbit</span><span style="opacity:0.3">·</span>
+  <span><b>U</b> Upgrades</span>
+`
+
+const coinHud = document.createElement('div')
+coinHud.style.cssText = `
+  position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+  background: rgba(12, 16, 24, 0.7); backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 215, 0, 0.15); border-radius: 12px;
+  font-family: 'Inter', system-ui, sans-serif; color: rgba(255, 215, 0, 0.95);
+  font-size: 18px; font-weight: 600; padding: 8px 20px; display: flex; align-items: center; gap: 8px;
+  z-index: 1000; user-select: none; letter-spacing: 0.5px;
+  transition: transform 0.15s ease;
+`
+coinHud.innerHTML = `<span style="font-size:22px;">🪙</span><span id="coin-count">0</span>`
+document.body.appendChild(coinHud)
+
+function updateCoinHud() {
+  const el = document.getElementById('coin-count')
+  if (el) el.textContent = coinScore
+  coinHud.style.transform = 'translateX(-50%) scale(1.15)'
+  setTimeout(() => { coinHud.style.transform = 'translateX(-50%) scale(1)' }, 150)
+}
+document.body.appendChild(hud)
+
+/* ─── Roguelike Upgrade System ───────────────────────────────────────── */
+const UPGRADE_COST_BASE = 3
+const UPGRADE_COST_SCALE = 2
+
+const upgrades = [
+  { id: 'speed',   icon: '⚡', name: 'Top Speed',    desc: '+3 max speed',       key: 'maxSpeed',        delta: 3,    level: 0, max: 8,  color: '#60cfff' },
+  { id: 'accel',   icon: '🔥', name: 'Acceleration', desc: '+2 acceleration',    key: 'acceleration',    delta: 2,    level: 0, max: 8,  color: '#ff8844' },
+  { id: 'nitro',   icon: '🚀', name: 'Nitro Boost',  desc: '+0.5 boost multi',   key: 'boostMultiplier', delta: 0.5,  level: 0, max: 10, color: '#ff44aa' },
+  { id: 'jump',    icon: '🦘', name: 'Jump Power',   desc: '+1.5 jump force',    key: 'jumpForce',       delta: 1.5,  level: 0, max: 8,  color: '#44ff88' },
+  { id: 'steer',   icon: '🎯', name: 'Steering',     desc: '+0.08 steer angle',  key: 'steer',           delta: 0.08, level: 0, max: 8,  color: '#ffee44' },
+  { id: 'grip',    icon: '🛞', name: 'Tire Grip',    desc: '+0.4 grip',          key: 'grip',            delta: 0.4,  level: 0, max: 8,  color: '#bb88ff' },
+]
+
+function getUpgradeCost(upgrade) {
+  return UPGRADE_COST_BASE + upgrade.level * UPGRADE_COST_SCALE
+}
+
+// Upgrade panel overlay
+const upgradeOverlay = document.createElement('div')
+upgradeOverlay.id = 'upgrade-overlay'
+upgradeOverlay.style.cssText = `
+  position: fixed; inset: 0; z-index: 3000;
+  background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(8px);
+  display: none; align-items: center; justify-content: center;
+  font-family: 'Inter', system-ui, sans-serif;
+  animation: fadeIn 0.25s ease;
+`
+document.body.appendChild(upgradeOverlay)
+
+const upgradePanel = document.createElement('div')
+upgradePanel.style.cssText = `
+  background: rgba(12, 16, 24, 0.92); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 18px; padding: 24px 28px 20px; min-width: 340px; max-width: 440px;
+  color: #e0e8f0;
+`
+upgradeOverlay.appendChild(upgradePanel)
+
+let upgradeShopOpen = false
+
+function renderUpgradeShop() {
+  let html = `
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+      <div style="font-size:16px; font-weight:600; letter-spacing:0.5px; text-transform:uppercase; color:rgba(255,255,255,0.6);">⚙ Upgrades</div>
+      <div style="display:flex; align-items:center; gap:6px; font-size:15px; font-weight:600; color:#ffd700;">
+        🪙 <span>${coinScore}</span>
+      </div>
+    </div>
+  `
+  for (const u of upgrades) {
+    const cost = getUpgradeCost(u)
+    const canAfford = coinScore >= cost
+    const maxed = u.level >= u.max
+    const barPct = (u.level / u.max) * 100
+    html += `
+      <div style="
+        display:flex; align-items:center; gap:10px; padding:8px 10px; margin-bottom:6px;
+        border-radius:10px; background:rgba(255,255,255,0.03);
+        border:1px solid rgba(255,255,255,0.04);
+        transition: background 0.15s;
+        ${!maxed && canAfford ? 'cursor:pointer;' : 'opacity:' + (maxed ? '0.5' : '0.7') + ';'}
+      " ${!maxed && canAfford ? `onclick="window._buyUpgrade('${u.id}')"` : ''}
+         ${!maxed && canAfford ? `onmouseenter="this.style.background='rgba(255,255,255,0.07)'"` : ''}
+         ${!maxed && canAfford ? `onmouseleave="this.style.background='rgba(255,255,255,0.03)'"` : ''}>
+        <div style="font-size:22px; width:34px; text-align:center;">${u.icon}</div>
+        <div style="flex:1; min-width:0;">
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+            <span style="font-size:12px; font-weight:500; color:rgba(255,255,255,0.85);">${u.name}</span>
+            <span style="font-size:10px; color:rgba(255,255,255,0.4);">Lv ${u.level}/${u.max}</span>
+          </div>
+          <div style="font-size:9.5px; color:rgba(255,255,255,0.35); margin:2px 0 4px;">${u.desc}</div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <div style="flex:1; height:4px; border-radius:2px; background:rgba(255,255,255,0.06); overflow:hidden;">
+              <div style="width:${barPct}%; height:100%; border-radius:2px; background:${u.color}; transition:width 0.3s ease;"></div>
+            </div>
+            <span style="font-size:10px; font-weight:500; color:${maxed ? 'rgba(255,255,255,0.3)' : (canAfford ? '#ffd700' : 'rgba(255,100,100,0.7)')}; white-space:nowrap;">
+              ${maxed ? 'MAX' : '🪙 ' + cost}
+            </span>
+          </div>
+        </div>
+      </div>
+    `
+  }
+  html += `
+    <div style="text-align:center; margin-top:14px;">
+      <button onclick="window._closeUpgradeShop()" style="
+        background: rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);
+        color: rgba(255,255,255,0.6); font-family:'Inter',sans-serif; font-size:11px;
+        font-weight:500; padding:7px 28px; border-radius:8px; cursor:pointer;
+        letter-spacing:0.5px; transition: all 0.15s;
+      " onmouseenter="this.style.background='rgba(255,255,255,0.12)';this.style.color='#fff'"
+         onmouseleave="this.style.background='rgba(255,255,255,0.06)';this.style.color='rgba(255,255,255,0.6)'">
+        Close <span style="opacity:0.4; font-size:10px; margin-left:4px;">[U]</span>
+      </button>
+    </div>
+  `
+  upgradePanel.innerHTML = html
+}
+
+function openUpgradeShop() {
+  upgradeShopOpen = true
+  upgradeOverlay.style.display = 'flex'
+  renderUpgradeShop()
+}
+
+function closeUpgradeShop() {
+  upgradeShopOpen = false
+  upgradeOverlay.style.display = 'none'
+}
+
+window._buyUpgrade = (id) => {
+  const u = upgrades.find(up => up.id === id)
+  if (!u || u.level >= u.max) return
+  const cost = getUpgradeCost(u)
+  if (coinScore < cost) return
+  coinScore -= cost
+  u.level++
+  carSettings[u.key] += u.delta
+  updateCoinHud()
+  renderUpgradeShop()
+  showUpgradeToast(u)
+}
+
+window._closeUpgradeShop = closeUpgradeShop
+
+function showUpgradeToast(u) {
+  const toast = document.createElement('div')
+  toast.style.cssText = `
+    position: fixed; top: 70px; left: 50%; transform: translateX(-50%) translateY(-10px);
+    background: rgba(12, 16, 24, 0.85); backdrop-filter: blur(12px);
+    border: 1px solid ${u.color}33; border-radius: 10px;
+    padding: 8px 18px; font-family:'Inter',sans-serif; font-size:12px;
+    color: ${u.color}; font-weight: 500; z-index: 3500;
+    display: flex; align-items: center; gap: 8px;
+    opacity: 0; transition: all 0.3s ease;
+    pointer-events: none;
+  `
+  toast.innerHTML = `<span style="font-size:16px;">${u.icon}</span> ${u.name} → Lv ${u.level}`
+  document.body.appendChild(toast)
+  requestAnimationFrame(() => {
+    toast.style.opacity = '1'
+    toast.style.transform = 'translateX(-50%) translateY(0)'
+  })
+  setTimeout(() => {
+    toast.style.opacity = '0'
+    toast.style.transform = 'translateX(-50%) translateY(-10px)'
+    setTimeout(() => toast.remove(), 300)
+  }, 1600)
+}
+
+// ─── Game Loop ──────────────────────────────────────────────────────────────
+const chassisPos = new THREE.Vector3()
+const chassisQuat = new THREE.Quaternion()
+const tmpV = new THREE.Vector3()
+const tmpQ = new THREE.Quaternion()
+const tmpQ2 = new THREE.Quaternion()
+const cameraIdeal = new THREE.Vector3()
+const SPIN_AXIS = new THREE.Vector3(0, 0, 1)
+const UP = new THREE.Vector3(0, 1, 0)
+
+const DUST_COUNT = 1200
+const dustData = []
+for (let i = 0; i < DUST_COUNT; i++) dustData.push({ life: 0, maxLife: 0, x: 0, y: -999, z: 0, vx: 0, vy: 0, vz: 0, size: 0, opacity: 0 })
+
+const dustQuadGeo = new THREE.PlaneGeometry(1, 1)
+const dustCanvas = document.createElement('canvas')
+dustCanvas.width = 64; dustCanvas.height = 64
+const dustCtx = dustCanvas.getContext('2d')
+const gradient = dustCtx.createRadialGradient(32, 32, 0, 32, 32, 32)
+gradient.addColorStop(0, 'rgba(255,255,255,1)')
+gradient.addColorStop(0.2, 'rgba(255,255,255,0.8)')
+gradient.addColorStop(0.5, 'rgba(255,255,255,0.35)')
+gradient.addColorStop(0.75, 'rgba(255,255,255,0.1)')
+gradient.addColorStop(1, 'rgba(255,255,255,0)')
+dustCtx.fillStyle = gradient; dustCtx.fillRect(0, 0, 64, 64)
+const dustTexture = new THREE.CanvasTexture(dustCanvas)
+
+const dustGradientCanvas = document.createElement('canvas')
+dustGradientCanvas.width = 64; dustGradientCanvas.height = 64
+const dustGradCtx = dustGradientCanvas.getContext('2d')
+const dustGrad = dustGradCtx.createRadialGradient(32, 32, 0, 32, 32, 32)
+dustGrad.addColorStop(0, 'rgba(200, 110, 20, 1)')
+dustGrad.addColorStop(0.25, 'rgba(180, 85, 15, 0.85)')
+dustGrad.addColorStop(0.5, 'rgba(150, 65, 10, 0.45)')
+dustGrad.addColorStop(0.75, 'rgba(120, 50, 5, 0.15)')
+dustGrad.addColorStop(1, 'rgba(100, 40, 5, 0)')
+dustGradCtx.fillStyle = dustGrad; dustGradCtx.fillRect(0, 0, 64, 64)
+const dustGradientTexture = new THREE.CanvasTexture(dustGradientCanvas)
+
+const dustMat = new THREE.MeshBasicMaterial({
+  color: new THREE.Color(1, 1, 1),
+  map: dustGradientTexture,
+  transparent: true, depthWrite: false, side: THREE.DoubleSide, opacity: 0.1,
+})
+const dustIMesh = new THREE.InstancedMesh(dustQuadGeo, dustMat, DUST_COUNT)
+dustIMesh.frustumCulled = false
+dustIMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+const dustColors = new Float32Array(DUST_COUNT * 3).fill(1)
+dustIMesh.instanceColor = new THREE.InstancedBufferAttribute(dustColors, 3)
+dustIMesh.instanceColor.setUsage(THREE.DynamicDrawUsage)
+scene.add(dustIMesh)
+
+const _dustMat4 = new THREE.Matrix4()
+const _dustScale = new THREE.Vector3()
+const _dustPos = new THREE.Vector3()
+for (let i = 0; i < DUST_COUNT; i++) { _dustMat4.makeScale(0, 0, 0); dustIMesh.setMatrixAt(i, _dustMat4) }
+dustIMesh.instanceMatrix.needsUpdate = true
+
+const SPLASH_COUNT = 300
+const splashData = []
+for (let i = 0; i < SPLASH_COUNT; i++) splashData.push({ life: 0, maxLife: 0, x: 0, y: -999, z: 0, vx: 0, vy: 0, vz: 0, size: 0, opacity: 0, gravity: 0 })
+
+const splashMat = new THREE.MeshBasicMaterial({
+  color: new THREE.Color(0.45, 0.75, 0.78),
+  transparent: true, depthWrite: false, side: THREE.DoubleSide, opacity: 0.15, map: dustTexture,
+})
+const splashIMesh = new THREE.InstancedMesh(dustQuadGeo, splashMat, SPLASH_COUNT)
+splashIMesh.frustumCulled = false
+splashIMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+const splashColors = new Float32Array(SPLASH_COUNT * 3).fill(1)
+splashIMesh.instanceColor = new THREE.InstancedBufferAttribute(splashColors, 3)
+splashIMesh.instanceColor.setUsage(THREE.DynamicDrawUsage)
+for (let i = 0; i < SPLASH_COUNT; i++) { _dustMat4.makeScale(0, 0, 0); splashIMesh.setMatrixAt(i, _dustMat4) }
+splashIMesh.instanceMatrix.needsUpdate = true
+scene.add(splashIMesh)
+
+// ─── Ambient Wind Dust ──────────────────────────────────────────────────
+const WIND_DUST_COUNT = 1500
+const windDustData = []
+for (let i = 0; i < WIND_DUST_COUNT; i++) {
+  windDustData.push({
+    x: 0, y: 0, z: 0,
+    vx: 0, vy: 0, vz: 0,
+    life: 0, maxLife: 0,
+    size: 0, opacity: 0,
+    wobblePhase: Math.random() * Math.PI * 2,
+    wobbleSpeed: 1.5 + Math.random() * 2.5,
+    wobbleAmp: 0.3 + Math.random() * 0.8,
+  })
+}
+
+const windSettings = {
+  dirX: -3.5, dirZ: 1.8, gustStrength: 2.5, turbulence: 1.2,
+  spawnRadius: 60, spawnHeight: 25, particleSize: 1.5, sizeVariance: 1.5,
+  lifetime: 4, lifetimeVariance: 3, opacity: 0.35, drag: 0.985,
+  colorR: 0.85, colorG: 0.75, colorB: 0.6,
+}
+
+const windDustMat = new THREE.MeshBasicMaterial({
+  color: new THREE.Color(0.76, 0.62, 0.38),
+  transparent: true, depthWrite: false, side: THREE.DoubleSide, opacity: 0.15, map: dustTexture,
+})
+const windDustIMesh = new THREE.InstancedMesh(dustQuadGeo, windDustMat, WIND_DUST_COUNT)
+windDustIMesh.frustumCulled = false
+windDustIMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+const windDustColors = new Float32Array(WIND_DUST_COUNT * 3).fill(1)
+windDustIMesh.instanceColor = new THREE.InstancedBufferAttribute(windDustColors, 3)
+windDustIMesh.instanceColor.setUsage(THREE.DynamicDrawUsage)
+for (let i = 0; i < WIND_DUST_COUNT; i++) { _dustMat4.makeScale(0, 0, 0); windDustIMesh.setMatrixAt(i, _dustMat4) }
+windDustIMesh.instanceMatrix.needsUpdate = true
+scene.add(windDustIMesh)
+
+// ─── Rocks & Bushes Scatter (persistent cell-based) ─────────────────────
+const _rockGeoCache = []
+function createRockGeometry(seed) {
+  if (_rockGeoCache.length < 12) {
+    for (let g = 0; g < 12; g++) {
+      const geo = new THREE.SphereGeometry(1, 24, 16)
+      const pos = geo.attributes.position
+      const freq1 = 1.5 + g * 0.3, freq2 = 2.8 + g * 0.2
+      for (let i = 0; i < pos.count; i++) {
+        const nx = pos.getX(i), ny = pos.getY(i), nz = pos.getZ(i)
+        const len = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1
+        const ux = nx / len, uy = ny / len, uz = nz / len
+        const n1 = Math.sin(ux * freq1 + uz * freq2 + g) * Math.cos(uy * freq1 * 1.3 + g * 0.7)
+        const n2 = Math.sin(ux * freq2 * 2.1 + uy * 3.7 + g * 1.1) * 0.5
+        const disp = (n1 * 0.12 + n2 * 0.06)
+        const squashY = 0.45 + ((Math.sin(g * 2.1) + 1) * 0.5) * 0.4
+        pos.setX(i, nx * (1 + disp))
+        pos.setY(i, ny * squashY * (1 + disp * 0.5))
+        pos.setZ(i, nz * (1 + disp))
+      }
+      geo.computeVertexNormals()
+      _rockGeoCache.push(geo)
+    }
+  }
+  return _rockGeoCache[Math.floor(((seed * 7.31) % 1 + 1) % 1 * 12)]
+}
+
+const _bushGeoCache = []
+function createBushGeometry(seed) {
+  if (_bushGeoCache.length < 6) {
+    for (let g = 0; g < 6; g++) {
+      const merged = new THREE.Group()
+      const count = 3 + (g % 3)
+      for (let i = 0; i < count; i++) {
+        const r = 0.3 + ((Math.sin(g * 3.1 + i * 2.7) + 1) * 0.5) * 0.4
+        const sphere = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), bushMats[0])
+        const ax = (Math.sin(g * 1.3 + i * 4.1) * 0.5) * 0.6
+        const az = (Math.cos(g * 2.7 + i * 3.3) * 0.5) * 0.6
+        sphere.position.set(ax, r * 0.6 + Math.abs(Math.sin(g + i)) * 0.15, az)
+        sphere.scale.y = 0.7 + Math.abs(Math.cos(g * 0.8 + i)) * 0.3
+        merged.add(sphere)
+      }
+      _bushGeoCache.push(merged)
+    }
+  }
+  return _bushGeoCache[Math.floor(((seed * 5.17) % 1 + 1) % 1 * 6)].clone()
+}
+
+const SCATTER_CELL = 14
+const SCATTER_RANGE = 12
+const rockMat = new THREE.MeshStandardMaterial({ color: '#8a7d6b', roughness: 0.92, metalness: 0.05 })
+const rockMat2 = new THREE.MeshStandardMaterial({ color: '#7a6e5a', roughness: 0.95, metalness: 0.03 })
+const rockMat3 = new THREE.MeshStandardMaterial({ color: '#6d6050', roughness: 0.88, metalness: 0.08 })
+const rockMats = [rockMat, rockMat2, rockMat3]
+
+const bushMat = new THREE.MeshStandardMaterial({ color: '#6b7a45', roughness: 0.85, metalness: 0 })
+const bushMat2 = new THREE.MeshStandardMaterial({ color: '#5a6e3a', roughness: 0.9, metalness: 0 })
+const bushMat3 = new THREE.MeshStandardMaterial({ color: '#7a8a50', roughness: 0.82, metalness: 0 })
+const bushMats = [bushMat, bushMat2, bushMat3]
+
+// ─── Ancient Ruin Materials ─────────────────────────────────────────────
+const ruinMat1 = new THREE.MeshStandardMaterial({ color: '#c4a96a', roughness: 0.95, metalness: 0.02 })
+const ruinMat2 = new THREE.MeshStandardMaterial({ color: '#b89a5e', roughness: 0.92, metalness: 0.03 })
+const ruinMat3 = new THREE.MeshStandardMaterial({ color: '#a88c52', roughness: 0.97, metalness: 0.01 })
+const ruinMats = [ruinMat1, ruinMat2, ruinMat3]
+
+function createRuinColumn(seed, broken) {
+  const group = new THREE.Group()
+  const r = 0.25 + (seed % 0.3) * 0.5
+  const fullH = 2.5 + seed * 2.5
+  const h = broken ? fullH * (0.3 + ((Math.sin(seed * 47.1) + 1) * 0.5) * 0.5) : fullH
+
+  // Column shaft
+  const shaftGeo = new THREE.CylinderGeometry(r * 0.85, r, h, 10, 4)
+  const pos = shaftGeo.attributes.position
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i)
+    const angle = Math.atan2(pos.getZ(i), pos.getX(i))
+    const dist = Math.sqrt(pos.getX(i)**2 + pos.getZ(i)**2) || 1
+    const flute = Math.sin(angle * 8) * 0.03 * r
+    const erosion = Math.sin(y * 3.1 + seed * 10) * 0.02
+    pos.setX(i, pos.getX(i) + (pos.getX(i) / dist) * (flute + erosion))
+    pos.setZ(i, pos.getZ(i) + (pos.getZ(i) / dist) * (flute + erosion))
+  }
+  shaftGeo.computeVertexNormals()
+  const matIdx = Math.abs(Math.floor(seed * 30)) % 3
+  const shaft = new THREE.Mesh(shaftGeo, ruinMats[matIdx])
+  shaft.position.y = h / 2
+  shaft.castShadow = true; shaft.receiveShadow = true
+  group.add(shaft)
+
+  // Base slab
+  const baseGeo = new THREE.BoxGeometry(r * 2.8, 0.25, r * 2.8)
+  const base = new THREE.Mesh(baseGeo, ruinMats[(matIdx + 1) % 3])
+  base.position.y = 0.12
+  base.castShadow = true; base.receiveShadow = true
+  group.add(base)
+
+  // Capital (top piece) if not too broken
+  if (!broken || h > fullH * 0.6) {
+    const capGeo = new THREE.BoxGeometry(r * 2.4, 0.3, r * 2.4)
+    const cap = new THREE.Mesh(capGeo, ruinMats[matIdx])
+    cap.position.y = h + 0.15
+    cap.rotation.y = seed * 2
+    cap.castShadow = true; cap.receiveShadow = true
+    group.add(cap)
+  }
+
+  return group
+}
+
+function createRuinWall(seed) {
+  const group = new THREE.Group()
+  const w = 2.5 + seed * 3
+  const fullH = 1.8 + seed * 2
+  const thickness = 0.35 + seed * 0.15
+
+  // Stacked block appearance
+  const rows = Math.floor(fullH / 0.5)
+  for (let row = 0; row < rows; row++) {
+    const y = row * 0.5 + 0.25
+    const rowSeed = Math.sin(seed * 10 + row * 3.7)
+    // Random erosion: skip some blocks at top
+    const missingChance = row / rows
+    let x = -w / 2
+    while (x < w / 2) {
+      const blockW = 0.4 + Math.abs(Math.sin(x * 7 + row * 3 + seed * 20)) * 0.7
+      const actualW = Math.min(blockW, w / 2 - x)
+      if (actualW < 0.15) { x += actualW; continue }
+      // Skip blocks randomly near top for ruined look
+      if (Math.sin(x * 13.7 + row * 7.3 + seed * 50) > (1 - missingChance * 1.4)) { x += actualW + 0.05; continue }
+      const blockH = 0.42 + Math.sin(x * 5 + row + seed * 8) * 0.08
+      const geo = new THREE.BoxGeometry(actualW, blockH, thickness * (0.9 + Math.abs(Math.cos(x + row)) * 0.2))
+      const wallMatIdx = Math.abs(Math.floor(Math.sin(x * 3 + row * 5 + seed * 7) * 100)) % 3
+      const block = new THREE.Mesh(geo, ruinMats[wallMatIdx])
+      block.position.set(x + actualW / 2, y, (Math.sin(x * 5 + row) * 0.03))
+      block.rotation.y = Math.sin(x * 11 + seed) * 0.03
+      block.castShadow = true; block.receiveShadow = true
+      group.add(block)
+      x += actualW + 0.05
+    }
+  }
+  return group
+}
+
+function createRuinArchway(seed) {
+  const group = new THREE.Group()
+  const spacing = 1.8 + seed * 0.8
+  const colH = 2.5 + seed * 1.5
+  const r = 0.22
+
+  // Two columns
+  for (let side = -1; side <= 1; side += 2) {
+    const col = createRuinColumn(seed + side * 0.1, false)
+    col.position.x = side * spacing / 2
+    group.add(col)
+  }
+
+  // Lintel across top
+  const lintelGeo = new THREE.BoxGeometry(spacing + 0.8, 0.35, 0.6)
+    const lintel = new THREE.Mesh(lintelGeo, ruinMats[Math.abs(Math.floor(seed * 7)) % 3])
+  lintel.position.y = colH + 0.45
+  lintel.rotation.z = (Math.sin(seed * 20) * 0.06)
+  lintel.castShadow = true; lintel.receiveShadow = true
+  group.add(lintel)
+
+  return group
+}
+
+function createLargeRuin(seed) {
+  const group = new THREE.Group()
+  const type = Math.floor(seed * 100) % 4
+
+  if (type === 0) {
+    // Crumbling temple foundation — large rectangular base with partial walls and columns
+    const baseW = 6 + seed * 3, baseD = 5 + seed * 2.5, baseH = 1.4
+    const baseGeo = new THREE.BoxGeometry(baseW, baseH, baseD)
+    const base = new THREE.Mesh(baseGeo, ruinMats[0])
+    base.position.y = baseH / 2 - 0.8
+    base.castShadow = true; base.receiveShadow = true
+    group.add(base)
+
+    // Step/platform
+    const stepGeo = new THREE.BoxGeometry(baseW * 0.85, 0.35, baseD * 0.85)
+    const step = new THREE.Mesh(stepGeo, ruinMats[1])
+    step.position.y = baseH - 0.8 + 0.17
+    step.castShadow = true; step.receiveShadow = true
+    group.add(step)
+
+    // Perimeter columns
+    const platTop = baseH - 0.8 + 0.35
+    const cols = 6 + Math.floor(seed * 4)
+    for (let i = 0; i < cols; i++) {
+      const angle = (i / cols) * Math.PI * 2
+      const cx = Math.cos(angle) * (baseW * 0.4)
+      const cz = Math.sin(angle) * (baseD * 0.4)
+      const cs = (seed + i * 0.097) % 1
+      const broken = Math.sin(seed * 50 + i * 11) > -0.4
+      const col = createRuinColumn(cs, broken)
+      col.position.set(cx, platTop, cz)
+      col.rotation.x = Math.sin(seed * 7 + i) * 0.06
+      col.rotation.z = Math.cos(seed * 9 + i) * 0.05
+      group.add(col)
+    }
+
+    // Partial back wall
+    if (seed > 0.3) {
+      const wall = createRuinWall(seed * 0.7)
+      wall.position.set(0, platTop, -baseD * 0.38)
+      wall.scale.set(1.2, 1, 1)
+      group.add(wall)
+    }
+
+    // Rubble pile — placed on the platform surface, not floating
+    for (let i = 0; i < 8; i++) {
+      const s = 0.2 + Math.abs(Math.sin(seed * 40 + i * 3)) * 0.6
+      const geo = new THREE.BoxGeometry(s * 1.3, s * 0.5, s)
+      const block = new THREE.Mesh(geo, ruinMats[i % 3])
+      // Place rubble on or near the base platform
+      const rx = (Math.sin(seed * 20 + i * 5) - 0.5) * baseW * 0.8
+      const rz = (Math.cos(seed * 20 + i * 5) - 0.5) * baseD * 0.8
+      const onPlatform = Math.abs(rx) < baseW * 0.45 && Math.abs(rz) < baseD * 0.45
+      const rubbleY = onPlatform ? platTop + s * 0.25 : s * 0.25
+      block.position.set(rx, rubbleY, rz)
+      block.rotation.set(Math.sin(i) * 0.3, i * 1.1, Math.cos(i) * 0.2)
+      block.castShadow = true; block.receiveShadow = true
+      group.add(block)
+    }
+  } else if (type === 1) {
+    // Massive broken tower
+    const radius = 1.5 + seed * 0.8
+    const towerH = 5 + seed * 4
+    const segments = 14
+    // Lower intact section
+    const lowerH = towerH * (0.5 + seed * 0.3)
+    const lowerGeo = new THREE.CylinderGeometry(radius * 0.9, radius, lowerH, segments, 6)
+    const lPos = lowerGeo.attributes.position
+    for (let i = 0; i < lPos.count; i++) {
+      const y = lPos.getY(i)
+      const angle = Math.atan2(lPos.getZ(i), lPos.getX(i))
+      const erosion = Math.sin(angle * 5 + seed * 20) * 0.08 + Math.sin(y * 2 + seed * 10) * 0.05
+      const nearTop = Math.max(0, (y - lowerH * 0.3) / (lowerH * 0.7))
+      const breakage = nearTop * nearTop * Math.abs(Math.sin(angle * 7 + seed * 30)) * 0.3
+      const r = Math.sqrt(lPos.getX(i) ** 2 + lPos.getZ(i) ** 2) || 1
+      const factor = 1 + erosion - breakage
+      lPos.setX(i, lPos.getX(i) / r * (r * factor))
+      lPos.setZ(i, lPos.getZ(i) / r * (r * factor))
+    }
+    lowerGeo.computeVertexNormals()
+    const lower = new THREE.Mesh(lowerGeo, ruinMats[0])
+    lower.position.y = lowerH / 2
+    lower.castShadow = true; lower.receiveShadow = true
+    group.add(lower)
+
+    // Base ring — buried foundation
+    const ringGeo = new THREE.BoxGeometry(radius * 2.6, 1.2, radius * 2.6)
+    const ring = new THREE.Mesh(ringGeo, ruinMats[1])
+    ring.position.y = -0.2; ring.castShadow = true; ring.receiveShadow = true
+    group.add(ring)
+
+    // Fallen top section rubble — sits on ground around tower base
+    for (let i = 0; i < 10; i++) {
+      const s = 0.25 + Math.abs(Math.sin(seed * 50 + i * 7)) * 0.5
+      const geo = new THREE.BoxGeometry(s * 1.5, s, s * 1.2)
+      const piece = new THREE.Mesh(geo, ruinMats[i % 3])
+      const angle = seed * 10 + i * (Math.PI * 2 / 10)
+      const dist = radius + 0.5 + Math.abs(Math.sin(seed * 30 + i * 3)) * 2.5
+      // Half-buried in ground
+      piece.position.set(Math.cos(angle) * dist, s * 0.25, Math.sin(angle) * dist)
+      piece.rotation.set(Math.sin(seed * 11 + i * 2) * 0.5, Math.sin(seed * 7 + i * 3) * 3, Math.sin(seed * 5 + i) * 0.4)
+      piece.castShadow = true; piece.receiveShadow = true
+      group.add(piece)
+    }
+
+    // Doorway opening — only add if tower is tall enough
+    if (lowerH > 2.0) {
+      const doorW = radius * 0.7, doorH = Math.min(1.8, lowerH * 0.6)
+      const lGeo = new THREE.BoxGeometry(0.3, doorH, 0.4)
+      const lMat = ruinMats[2]
+      const lPillar = new THREE.Mesh(lGeo, lMat)
+      lPillar.position.set(radius * 0.95, doorH / 2, -doorW / 2)
+      lPillar.castShadow = true; group.add(lPillar)
+      const rPillar = new THREE.Mesh(lGeo, lMat)
+      rPillar.position.set(radius * 0.95, doorH / 2, doorW / 2)
+      rPillar.castShadow = true; group.add(rPillar)
+      const lintelGeo = new THREE.BoxGeometry(0.35, 0.3, doorW + 0.6)
+      const lintel = new THREE.Mesh(lintelGeo, ruinMats[0])
+      lintel.position.set(radius * 0.95, doorH + 0.15, 0)
+      lintel.rotation.z = seed * 0.08
+      lintel.castShadow = true; group.add(lintel)
+    }
+
+  } else if (type === 2) {
+    // Ruined colonnade — long row of columns with partial roof
+    const count = 5 + Math.floor(seed * 4)
+    const spacing = 2.2
+    const totalLen = count * spacing
+
+    for (let i = 0; i < count; i++) {
+      for (let side = -1; side <= 1; side += 2) {
+        const cs = (seed + i * 0.11 + side * 0.05) % 1
+        const broken = Math.sin(seed * 40 + i * 7 + side * 13) > -0.1
+        const col = createRuinColumn(cs, broken)
+        col.position.set(i * spacing - totalLen / 2, 0, side * 2.5)
+        col.rotation.x = Math.sin(seed * 5 + i + side) * 0.07
+        col.rotation.z = Math.cos(seed * 7 + i) * 0.05
+        group.add(col)
+      }
+    }
+
+    // Partial roof slabs — only connect columns that are both intact (not broken)
+    for (let i = 0; i < count - 1; i++) {
+      if (Math.sin(seed * 30 + i * 9) > 0.2) continue // skip some for ruined look
+      // Check if both adjacent columns on at least one side are intact
+      const leftBroken = Math.sin(seed * 40 + i * 7 + (-1) * 13) > -0.1
+      const rightBroken = Math.sin(seed * 40 + (i+1) * 7 + (-1) * 13) > -0.1
+      if (leftBroken && rightBroken) continue // both broken, skip slab
+      const slabGeo = new THREE.BoxGeometry(spacing * 0.9, 0.25, 5.5)
+      const slab = new THREE.Mesh(slabGeo, ruinMats[i % 3])
+      slab.position.set(i * spacing - totalLen / 2 + spacing / 2, 3 + seed * 1.5, 0)
+      slab.rotation.z = (Math.sin(seed * 15 + i) * 0.08)
+      slab.rotation.x = (Math.cos(seed * 12 + i) * 0.04)
+      slab.castShadow = true; slab.receiveShadow = true
+      group.add(slab)
+    }
+
+    // Ground path / floor — buried foundation slab
+    const floorGeo = new THREE.BoxGeometry(totalLen + 1, 0.8, 5.8)
+    const floor = new THREE.Mesh(floorGeo, ruinMats[1])
+    floor.position.y = -0.25; floor.castShadow = true; floor.receiveShadow = true
+    group.add(floor)
+
+    // Scattered rubble — on or near the floor slab
+    for (let i = 0; i < 6; i++) {
+      const s = 0.15 + Math.abs(Math.sin(seed * 25 + i)) * 0.45
+      const geo = new THREE.BoxGeometry(s * 1.2, s * 0.6, s)
+      const block = new THREE.Mesh(geo, ruinMats[i % 3])
+      block.position.set(
+        (Math.sin(seed * 10 + i * 4) - 0.5) * totalLen * 0.7,
+        s * 0.2,
+        (Math.cos(seed * 10 + i * 4) - 0.5) * 2.5
+      )
+      block.rotation.set(Math.sin(i) * 0.3, i * 1.5, Math.cos(i) * 0.2)
+      block.castShadow = true; block.receiveShadow = true
+      group.add(block)
+    }
+
+  } else {
+    // Collapsed pyramid / ziggurat — with buried foundation
+    const levels = 3 + Math.floor(seed * 3)
+    let w = 5 + seed * 3, d = 4.5 + seed * 2.5
+    // Foundation slab buried into terrain
+    const foundGeo = new THREE.BoxGeometry(w + 1, 1.0, d + 1)
+    const found = new THREE.Mesh(foundGeo, ruinMats[1])
+    found.position.y = -0.3
+    found.castShadow = true; found.receiveShadow = true
+    group.add(found)
+    let yOff = 0
+    for (let lv = 0; lv < levels; lv++) {
+      const lvH = 0.8 + (1 - lv / levels) * 0.5
+      // Missing chunks
+      const intact = Math.sin(seed * 20 + lv * 7) > -0.5 || lv < 2
+      if (intact) {
+        const geo = new THREE.BoxGeometry(w, lvH, d)
+        const block = new THREE.Mesh(geo, ruinMats[lv % 3])
+        block.position.y = yOff + lvH / 2
+        block.rotation.y = Math.sin(seed * 3 + lv) * 0.03
+        block.castShadow = true; block.receiveShadow = true
+        group.add(block)
+      } else {
+        // Partial — half collapsed
+        const halfW = w * (0.4 + Math.abs(Math.sin(seed * 15 + lv)) * 0.3)
+        const geo = new THREE.BoxGeometry(halfW, lvH * 0.7, d * 0.8)
+        const block = new THREE.Mesh(geo, ruinMats[lv % 3])
+        block.position.set((w - halfW) * 0.3, yOff + lvH * 0.35, 0)
+        block.rotation.z = seed * 0.06
+        block.castShadow = true; block.receiveShadow = true
+        group.add(block)
+      }
+      yOff += lvH
+      w *= 0.78; d *= 0.78
+    }
+
+    // Staircase on one side — ascending against the pyramid wall
+    const baseW2 = 5 + seed * 3
+    const stairW = 1.2, stairCount = Math.min(Math.floor(levels * 2), 8)
+    for (let s = 0; s < stairCount; s++) {
+      const sH = 0.3
+      const sGeo = new THREE.BoxGeometry(stairW, sH, 0.5)
+      const step = new THREE.Mesh(sGeo, ruinMats[s % 3])
+      // Steps start flush with the pyramid base and ascend along it
+      step.position.set(baseW2 * 0.5 - 0.1 - s * 0.2, s * sH + sH / 2, 0)
+      step.castShadow = true; step.receiveShadow = true
+      if (Math.sin(seed * 30 + s * 5) > 0.6) continue // skip some broken stairs
+      group.add(step)
+    }
+
+    // Rubble around base — half-buried, deterministic positions
+    for (let i = 0; i < 10; i++) {
+      const s = 0.2 + Math.abs(Math.sin(seed * 35 + i * 3)) * 0.7
+      const geo = new THREE.BoxGeometry(s * 1.3, s * 0.5, s)
+      const block = new THREE.Mesh(geo, ruinMats[i % 3])
+      const angle = seed * 10 + i * (Math.PI * 2 / 10)
+      const dist = 3 + Math.abs(Math.sin(seed * 20 + i * 5)) * 2.0
+      // Partially buried
+      block.position.set(Math.cos(angle) * dist, s * 0.1, Math.sin(angle) * dist)
+      block.rotation.set(Math.sin(i) * 0.3, i * 1.2, Math.cos(i) * 0.3)
+      block.castShadow = true; block.receiveShadow = true
+      group.add(block)
+    }
+  }
+
+  return group
+}
+
+function createRuinCluster(seed) {
+  const type = seed * 100 % 3
+  if (type < 1) {
+    // Column cluster (2-5 columns, some broken)
+    const group = new THREE.Group()
+    const count = 2 + Math.floor(seed * 4)
+    for (let i = 0; i < count; i++) {
+      const cs = (seed + i * 0.137) % 1
+      const broken = Math.sin(seed * 30 + i * 7) > -0.2
+      const col = createRuinColumn(cs, broken)
+      const angle = (i / count) * Math.PI * 2 + seed * 3
+      const dist = 0.8 + Math.sin(seed * 5 + i) * 1.2
+      col.position.x = Math.cos(angle) * dist
+      col.position.z = Math.sin(angle) * dist
+      col.rotation.y = seed * i * 2
+      // Slight lean for age
+      col.rotation.x = Math.sin(seed * 10 + i * 4) * 0.08
+      col.rotation.z = Math.cos(seed * 10 + i * 4) * 0.06
+      group.add(col)
+    }
+    // Scattered debris blocks — on ground, partially buried
+    for (let i = 0; i < 3; i++) {
+      const s = 0.15 + Math.abs(Math.sin(seed * 20 + i * 5)) * 0.4
+      const geo = new THREE.BoxGeometry(s, s * 0.6, s * 0.8)
+      const debris = new THREE.Mesh(geo, ruinMats[i % 3])
+      debris.position.set(
+        (Math.sin(seed * 15 + i * 8) * 2.5),
+        s * 0.1,
+        (Math.cos(seed * 15 + i * 8) * 2.5)
+      )
+      debris.rotation.set(Math.sin(seed * 3 + i * 7) * 0.5, Math.sin(seed * 5 + i * 4) * 3, Math.sin(seed * 8 + i) * 0.5)
+      debris.castShadow = true; debris.receiveShadow = true
+      group.add(debris)
+    }
+    return group
+  } else if (type < 2) {
+    // Wall fragment with rubble
+    const group = new THREE.Group()
+    const wall = createRuinWall(seed)
+    group.add(wall)
+    // Fallen blocks — sitting on ground, partially buried
+    for (let i = 0; i < 4; i++) {
+      const s = 0.2 + Math.abs(Math.sin(seed * 30 + i)) * 0.35
+      const geo = new THREE.BoxGeometry(s * 1.2, s * 0.5, s)
+      const block = new THREE.Mesh(geo, ruinMats[i % 3])
+      block.position.set(
+        (Math.sin(seed * 8 + i * 6) - 0.5) * 3,
+        s * 0.1,
+        0.8 + Math.abs(Math.cos(seed * 12 + i * 4)) * 1.5
+      )
+      block.rotation.set(0.1 * Math.sin(i), Math.sin(seed * 4 + i * 2) * 2, 0.1 * Math.cos(i))
+      block.castShadow = true; block.receiveShadow = true
+      group.add(block)
+    }
+    return group
+  } else {
+    return createRuinArchway(seed)
+  }
+}
+
+const scatterGroup = new THREE.Group()
+scene.add(scatterGroup)
+
+// Persistent cell map: key "cx,cz" → array of THREE.Object3D
+const scatterCells = new Map()
+
+// Physics colliders for destructible objects: mesh → { body, collider, cellKey }
+const destructibleMap = new Map()
+
+// Debris system
+const DEBRIS_COUNT = 600
+const debrisPool = []
+const debrisBoxGeo = new THREE.BoxGeometry(1, 1, 1)
+const debrisCylGeo = new THREE.CylinderGeometry(0.5, 0.5, 1, 8)
+const debrisMats = [
+  new THREE.MeshStandardMaterial({ color: '#c4a96a', roughness: 0.9 }),
+  new THREE.MeshStandardMaterial({ color: '#b89a5e', roughness: 0.92 }),
+  new THREE.MeshStandardMaterial({ color: '#8a7d6b', roughness: 0.88 }),
+  new THREE.MeshStandardMaterial({ color: '#a88c52', roughness: 0.95 }),
+]
+for (let i = 0; i < DEBRIS_COUNT; i++) {
+  debrisPool.push({
+    mesh: null, life: 0, maxLife: 0,
+    vx: 0, vy: 0, vz: 0, rx: 0, ry: 0, rz: 0,
+    gravity: 9.8, drag: 0.97,
+  })
+}
+let debrisIndex = 0
+const debrisGroup = new THREE.Group()
+scene.add(debrisGroup)
+
+function spawnDebris(wx, wy, wz, impactVx, impactVy, impactVz, count, scale, matIndex, isRuin = false) {
+  for (let n = 0; n < count; n++) {
+    const idx = debrisIndex % DEBRIS_COUNT; debrisIndex++
+    const d = debrisPool[idx]
+    if (d.mesh) { debrisGroup.remove(d.mesh); d.mesh = null }
+    const sx = (0.08 + Math.random() * 0.18) * scale
+    const sy = (0.05 + Math.random() * 0.12) * scale
+    const sz = (0.06 + Math.random() * 0.15) * scale
+    const geo = isRuin ? debrisCylGeo : debrisBoxGeo
+    const m = new THREE.Mesh(geo, debrisMats[(matIndex + n) % debrisMats.length])
+    m.scale.set(sx, sy, sz)
+    m.position.set(
+      wx + (Math.random() - 0.5) * scale * 0.8,
+      wy + Math.random() * scale * 0.5,
+      wz + (Math.random() - 0.5) * scale * 0.8
+    )
+    m.rotation.set(Math.random() * 6, Math.random() * 6, Math.random() * 6)
+    m.castShadow = true
+    debrisGroup.add(m)
+    d.mesh = m
+    const spread = 3 + scale * 1.5
+    d.vx = impactVx * 0.3 + (Math.random() - 0.5) * spread
+    d.vy = 2 + Math.random() * (3 + scale)
+    d.vz = impactVz * 0.3 + (Math.random() - 0.5) * spread
+    d.rx = (Math.random() - 0.5) * 8
+    d.ry = (Math.random() - 0.5) * 8
+    d.rz = (Math.random() - 0.5) * 8
+    d.maxLife = 1.5 + Math.random() * 2.5
+    d.life = d.maxLife
+    d.gravity = 8 + Math.random() * 4
+    d.drag = 0.96 + Math.random() * 0.03
+  }
+}
+
+function updateDebris(dt) {
+  for (let i = 0; i < DEBRIS_COUNT; i++) {
+    const d = debrisPool[i]
+    if (d.life <= 0 || !d.mesh) continue
+    d.life -= dt
+    if (d.life <= 0) {
+      debrisGroup.remove(d.mesh)
+      d.mesh = null
+      continue
+    }
+    d.vy -= d.gravity * dt
+    d.vx *= d.drag; d.vz *= d.drag
+    d.mesh.position.x += d.vx * dt
+    d.mesh.position.y += d.vy * dt
+    d.mesh.position.z += d.vz * dt
+    d.mesh.rotation.x += d.rx * dt
+    d.mesh.rotation.y += d.ry * dt
+    d.mesh.rotation.z += d.rz * dt
+    const t = d.life / d.maxLife
+    if (t < 0.3) d.mesh.scale.multiplyScalar(0.97)
+    // Simple floor check — use car Y as approximate ground instead of noise per debris
+    const approxGround = chassisPos.y - 3
+    if (d.mesh.position.y < approxGround) {
+      d.mesh.position.y = approxGround
+      d.vy *= -0.3
+      d.vx *= 0.7; d.vz *= 0.7
+      d.rx *= 0.5; d.ry *= 0.5; d.rz *= 0.5
+    }
+  }
+}
+
+// Solid (non-destructible) colliders for large ruins — LEGACY, kept for cell cleanup
+const solidColliders = new Map()
+
+function addSolidCollider(mesh, cellKey, halfW, halfH, halfD) {
+  // Big buildings are now destructible with HP — redirect to addDestructibleCollider with HP
+  addDestructibleCollider(mesh, cellKey, halfW, halfH, halfD, true, true)
+}
+
+function addDestructibleCollider(mesh, cellKey, halfW, halfH, halfD, isRuin, isBigRuin = false) {
+  const wp = new THREE.Vector3()
+  mesh.getWorldPosition(wp)
+  const body = physicsWorld.createRigidBody(
+    RAPIER.RigidBodyDesc.fixed().setTranslation(wp.x, wp.y + halfH, wp.z)
+  )
+  const collider = physicsWorld.createCollider(
+    RAPIER.ColliderDesc.cuboid(halfW, halfH, halfD)
+      .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS)
+      .setFriction(0.8)
+      .setSensor(false),
+    body
+  )
+  // Big ruins have HP that must be depleted before destruction
+  const hp = isBigRuin ? 3 : 1
+  const maxHp = hp
+  destructibleMap.set(collider.handle, {
+    mesh, body, collider, cellKey, isRuin, halfW, halfH, halfD,
+    isBigRuin, hp, maxHp,
+    shakeTimer: 0, originalPos: mesh.position.clone()
+  })
+}
+
+// Track all shared/cached geometries to never dispose them
+const _sharedGeos = new Set([..._rockGeoCache, debrisBoxGeo, debrisCylGeo])
+
+// HP bar pool for big ruins
+const hpBarPool = new Map() // handle -> { bg, bar, container }
+
+function createHpBar(mesh, info) {
+  const container = document.createElement('div')
+  container.style.cssText = `
+    position:fixed; pointer-events:none; z-index:50;
+    width:80px; height:8px; border-radius:6px;
+    background:rgba(0,0,0,0.55); border:1px solid rgba(255,255,255,0.15);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    overflow:hidden; display:none;
+  `
+  const bar = document.createElement('div')
+  bar.style.cssText = `
+    width:100%; height:100%; border-radius:6px;
+    background: linear-gradient(90deg, #ff4444, #ff8844, #ffcc44);
+    transition: width 0.25s ease-out;
+  `
+  container.appendChild(bar)
+  document.body.appendChild(container)
+  return { container, bar }
+}
+
+function updateHpBars(camera) {
+  const _v = new THREE.Vector3()
+  for (const [handle, info] of destructibleMap) {
+    if (!info.isBigRuin || info.hp >= info.maxHp) {
+      // Remove bar if fully healed or not big ruin
+      const hpBar = hpBarPool.get(handle)
+      if (hpBar) { hpBar.container.style.display = 'none' }
+      continue
+    }
+    let hpBar = hpBarPool.get(handle)
+    if (!hpBar) {
+      hpBar = createHpBar(info.mesh, info)
+      hpBarPool.set(handle, hpBar)
+    }
+    // Project world position to screen
+    try { info.mesh.getWorldPosition(_v) } catch (e) { _v.copy(info.mesh.position) }
+    _v.y += info.halfH * 2 + 1.5
+    _v.project(camera)
+    if (_v.z > 1) { hpBar.container.style.display = 'none'; continue }
+    const x = (0.5 + _v.x * 0.5) * window.innerWidth
+    const y = (0.5 - _v.y * 0.5) * window.innerHeight
+    hpBar.container.style.display = 'block'
+    hpBar.container.style.left = (x - 40) + 'px'
+    hpBar.container.style.top = y + 'px'
+    hpBar.bar.style.width = ((info.hp / info.maxHp) * 100) + '%'
+    // Color based on HP
+    const hpRatio = info.hp / info.maxHp
+    if (hpRatio > 0.6) hpBar.bar.style.background = 'linear-gradient(90deg, #44cc44, #88ee44)'
+    else if (hpRatio > 0.3) hpBar.bar.style.background = 'linear-gradient(90deg, #ffaa22, #ffcc44)'
+    else hpBar.bar.style.background = 'linear-gradient(90deg, #ff2222, #ff6644)'
+  }
+}
+
+function removeHpBar(handle) {
+  const hpBar = hpBarPool.get(handle)
+  if (hpBar) {
+    hpBar.container.remove()
+    hpBarPool.delete(handle)
+  }
+}
+
+// Screen shake state
+let screenShakeIntensity = 0
+let screenShakeDecay = 0
+
+function triggerScreenShake(intensity) {
+  screenShakeIntensity = Math.max(screenShakeIntensity, intensity)
+  screenShakeDecay = 0.92
+}
+
+function damageObject(handle, impactVel, impactSpeed) {
+  const info = destructibleMap.get(handle)
+  if (!info) return
+
+  // Cooldown to prevent instant multi-hit on big ruins (0.5s between hits)
+  const now = performance.now()
+  if (info.isBigRuin && info._lastHitTime && (now - info._lastHitTime) < 500) return
+  if (info.isBigRuin) info._lastHitTime = now
+
+  // Calculate damage based on impact speed
+  const damage = 1
+
+  if (info.isBigRuin && info.hp > 1) {
+    // Damage but don't destroy yet
+    info.hp -= damage
+    info.shakeTimer = 0.4
+
+    // Spawn partial debris (smaller burst)
+    const wp = new THREE.Vector3()
+    try { info.mesh.getWorldPosition(wp) } catch (e) { wp.copy(info.mesh.position) }
+    const scale = Math.max(info.halfW, info.halfH, info.halfD) * 1.2
+    spawnDebris(wp.x, wp.y + info.halfH, wp.z, impactVel.x * 0.5, 3, impactVel.z * 0.5, 8, scale * 0.5, 0, true)
+
+    // Flash the mesh red-orange to indicate damage
+    info.mesh.traverse(c => {
+      if (c.isMesh && c.material) {
+        const origColor = c.material.color ? c.material.color.clone() : null
+        if (origColor) {
+          c.material.emissive = c.material.emissive || new THREE.Color(0)
+          c.material.emissiveIntensity = 2.0
+          c.material.emissive.set(0xff4400)
+          setTimeout(() => {
+            if (c.material) {
+              c.material.emissiveIntensity = 0
+              c.material.emissive.set(0x000000)
+            }
+          }, 200)
+        }
+      }
+    })
+
+    // Screen shake
+    triggerScreenShake(0.3)
+
+    // Award 1 coin per hit
+    coinScore += 1
+    updateCoinHud()
+
+    return
+  }
+
+  // Full destruction (normal objects or big ruin at hp <= 1)
+  destroyObject(handle, impactVel)
+}
+
+function destroyObject(handle, impactVel) {
+  const info = destructibleMap.get(handle)
+  if (!info) return
+  destructibleMap.delete(handle)
+  const { mesh, body, collider, cellKey, isRuin, halfW, halfH, halfD, isBigRuin } = info
+  const wp = new THREE.Vector3()
+  try { mesh.getWorldPosition(wp) } catch (e) { wp.copy(mesh.position) }
+  const scale = Math.max(halfW, halfH, halfD) * 2
+  const debrisCount = isBigRuin ? Math.min(50, Math.floor(scale * 6)) : Math.min(25, Math.max(6, Math.floor(scale * 4)))
+  spawnDebris(wp.x, wp.y, wp.z, impactVel.x, impactVel.y, impactVel.z, debrisCount, scale, isRuin ? 0 : 2, isRuin)
+
+  // Big ruin final destruction rewards more coins and bigger shake
+  if (isBigRuin) {
+    coinScore += 5
+    updateCoinHud()
+    triggerScreenShake(0.6)
+  }
+
+  // Remove mesh from scene
+  if (mesh.parent) mesh.parent.remove(mesh)
+  mesh.traverse(c => {
+    if (c.geometry && !_sharedGeos.has(c.geometry) && !_rockGeoCache.includes(c.geometry)) {
+      c.geometry.dispose()
+    }
+  })
+  // Remove physics safely
+  try { physicsWorld.removeCollider(collider, false) } catch (e) {}
+  try { physicsWorld.removeRigidBody(body) } catch (e) {}
+  // Remove HP bar
+  removeHpBar(handle)
+  // Remove from cell tracking
+  const cellObjs = scatterCells.get(cellKey)
+  if (cellObjs) {
+    const idx = cellObjs.indexOf(mesh)
+    if (idx !== -1) cellObjs.splice(idx, 1)
+  }
+}
+
+function seededRand(x, z, seed) {
+  let n = Math.sin(x * 12.9898 + z * 78.233 + seed * 43.1234) * 43758.5453
+  return n - Math.floor(n)
+}
+
+function buildCell(cellX, cellZ) {
+  const key = cellX + ',' + cellZ
+  if (scatterCells.has(key)) return
+  const objs = []
+  const wx0 = cellX * SCATTER_CELL, wz0 = cellZ * SCATTER_CELL
+  const r1 = seededRand(wx0, wz0, 1)
+  const r2 = seededRand(wx0, wz0, 2)
+
+  if (r1 < 0.28) {
+    const wx = wx0 + (seededRand(wx0, wz0, 3) - 0.5) * SCATTER_CELL * 0.8
+    const wz = wz0 + (seededRand(wx0, wz0, 4) - 0.5) * SCATTER_CELL * 0.8
+    const h = getTerrainHeight(wx, wz) + GROUND_Y_OFFSET
+    if (h >= biomeSettings.waterLevel - 0.5) {
+      const scale = 0.3 + seededRand(wx0, wz0, 5) * 1.2
+      const geo = createRockGeometry(r1 + cellX * 0.137 + cellZ * 0.293)
+      const mat = rockMats[Math.floor(seededRand(wx0, wz0, 6) * 3)]
+      const mesh = new THREE.Mesh(geo, mat)
+      mesh.position.set(wx, h - 0.15 * scale, wz)
+      mesh.rotation.set(
+        seededRand(wx0, wz0, 7) * 0.4,
+        seededRand(wx0, wz0, 8) * Math.PI * 2,
+        seededRand(wx0, wz0, 9) * 0.3
+      )
+      mesh.scale.set(scale, scale * (0.5 + seededRand(wx0, wz0, 10) * 0.6), scale)
+      mesh.castShadow = true; mesh.receiveShadow = true
+      scatterGroup.add(mesh); objs.push(mesh)
+    }
+  }
+
+  if (r2 < 0.22) {
+    const wx = wx0 + (seededRand(wx0, wz0, 11) - 0.5) * SCATTER_CELL * 0.8
+    const wz = wz0 + (seededRand(wx0, wz0, 12) - 0.5) * SCATTER_CELL * 0.8
+    const h = getTerrainHeight(wx, wz) + GROUND_Y_OFFSET
+    if (h >= biomeSettings.sandEnd - 0.5) {
+      const scale = 0.5 + seededRand(wx0, wz0, 13) * 0.8
+      const bg = createBushGeometry(seededRand(wx0, wz0, 16))
+      const mat = bushMats[Math.floor(seededRand(wx0, wz0, 14) * 3)]
+      bg.traverse(c => { if (c.isMesh) { c.material = mat; c.castShadow = true; c.receiveShadow = true } })
+      bg.position.set(wx, h - 0.05, wz)
+      bg.scale.setScalar(scale)
+      bg.rotation.y = seededRand(wx0, wz0, 15) * Math.PI * 2
+      scatterGroup.add(bg); objs.push(bg)
+    }
+  }
+
+  // Coins — scattered on terrain
+  const rCoin = seededRand(wx0, wz0, 50)
+  if (rCoin < coinSettings.spawnChance) {
+    const wx = wx0 + (seededRand(wx0, wz0, 51) - 0.5) * SCATTER_CELL * 0.85
+    const wz = wz0 + (seededRand(wx0, wz0, 52) - 0.5) * SCATTER_CELL * 0.85
+    const h = getTerrainHeight(wx, wz) + GROUND_Y_OFFSET
+    if (h >= biomeSettings.waterLevel + 0.3) {
+      const coinGroup = new THREE.Group()
+      coinGroup.userData.isCoin = true
+      coinGroup.userData.collected = false
+      coinGroup.userData.baseY = h + 1.0
+      coinGroup.userData.phase = seededRand(wx0, wz0, 53) * Math.PI * 2
+
+      // Coin disc
+      const coinGeo = new THREE.CylinderGeometry(coinSettings.radius, coinSettings.radius, coinSettings.height, 20)
+      const coinMat1 = new THREE.MeshStandardMaterial({
+        color: coinSettings.color1, roughness: 0.2, metalness: 0.9,
+        emissive: coinSettings.color2, emissiveIntensity: 0.3,
+      })
+      const coinMesh = new THREE.Mesh(coinGeo, coinMat1)
+      coinMesh.rotation.x = Math.PI / 2
+      coinMesh.castShadow = true
+      coinGroup.add(coinMesh)
+
+      // Inner ring detail
+      const ringGeo = new THREE.TorusGeometry(coinSettings.radius * 0.65, 0.025, 8, 20)
+      const ringMat = new THREE.MeshStandardMaterial({
+        color: '#ffcc00', roughness: 0.3, metalness: 0.95,
+      })
+      const ring = new THREE.Mesh(ringGeo, ringMat)
+      coinGroup.add(ring)
+
+      // Star emboss
+      const starShape = new THREE.Shape()
+      const starPoints = 5, outerR = coinSettings.radius * 0.35, innerR = coinSettings.radius * 0.15
+      for (let si = 0; si < starPoints * 2; si++) {
+        const a = (si / (starPoints * 2)) * Math.PI * 2 - Math.PI / 2
+        const sr = si % 2 === 0 ? outerR : innerR
+        if (si === 0) starShape.moveTo(Math.cos(a) * sr, Math.sin(a) * sr)
+        else starShape.lineTo(Math.cos(a) * sr, Math.sin(a) * sr)
+      }
+      starShape.closePath()
+      const starGeo = new THREE.ExtrudeGeometry(starShape, { depth: 0.02, bevelEnabled: false })
+      const starMat = new THREE.MeshStandardMaterial({ color: '#fff0a0', roughness: 0.15, metalness: 1.0 })
+      const star1 = new THREE.Mesh(starGeo, starMat)
+      star1.position.z = coinSettings.height / 2 + 0.001
+      coinGroup.add(star1)
+      const star2 = new THREE.Mesh(starGeo, starMat)
+      star2.position.z = -coinSettings.height / 2 - 0.021
+      star2.rotation.y = Math.PI
+      coinGroup.add(star2)
+
+      // Glow sprite
+      const glowCanvas = document.createElement('canvas')
+      glowCanvas.width = 64; glowCanvas.height = 64
+      const gCtx = glowCanvas.getContext('2d')
+      const gGrad = gCtx.createRadialGradient(32, 32, 0, 32, 32, 32)
+      gGrad.addColorStop(0, 'rgba(255, 230, 100, 0.6)')
+      gGrad.addColorStop(0.3, 'rgba(255, 215, 0, 0.25)')
+      gGrad.addColorStop(1, 'rgba(255, 200, 0, 0)')
+      gCtx.fillStyle = gGrad; gCtx.fillRect(0, 0, 64, 64)
+      const glowTex = new THREE.CanvasTexture(glowCanvas)
+      const glowMat = new THREE.MeshBasicMaterial({
+        map: glowTex, transparent: true, depthWrite: false, side: THREE.DoubleSide, opacity: 0.6,
+      })
+      const glowMesh = new THREE.Mesh(new THREE.PlaneGeometry(coinSettings.glowSize, coinSettings.glowSize), glowMat)
+      glowMesh.renderOrder = 1
+      coinGroup.add(glowMesh)
+      coinGroup.userData.glowMesh = glowMesh
+
+      coinGroup.position.set(wx, h + 1.0, wz)
+      scatterGroup.add(coinGroup); objs.push(coinGroup)
+    }
+  }
+
+  // Ancient ruins — spawn on sandy areas, less frequent
+  const r3 = seededRand(wx0, wz0, 20)
+  if (r3 < 0.04) {
+    const wx = wx0 + (seededRand(wx0, wz0, 21) - 0.5) * SCATTER_CELL * 0.6
+    const wz = wz0 + (seededRand(wx0, wz0, 22) - 0.5) * SCATTER_CELL * 0.6
+    const h = getTerrainHeight(wx, wz) + GROUND_Y_OFFSET
+    // Only place on sandy/low terrain
+    if (h >= biomeSettings.waterLevel + 0.5 && h <= biomeSettings.dirtEnd + 1) {
+      const ruinSeed = seededRand(wx0, wz0, 23)
+      const ruin = createRuinCluster(ruinSeed)
+      const scale = 0.8 + seededRand(wx0, wz0, 24) * 0.6
+      ruin.position.set(wx, h - 0.1, wz)
+      ruin.scale.setScalar(scale)
+      ruin.rotation.y = seededRand(wx0, wz0, 25) * Math.PI * 2
+      scatterGroup.add(ruin); objs.push(ruin)
+      addDestructibleCollider(ruin, key, 1.8 * scale, 1.5 * scale, 1.8 * scale, true)
+    }
+  }
+
+  // Large building-sized ruins — very rare
+  const r4 = seededRand(wx0, wz0, 30)
+  if (r4 < 0.012) {
+    const wx = wx0 + (seededRand(wx0, wz0, 31) - 0.5) * SCATTER_CELL * 0.4
+    const wz = wz0 + (seededRand(wx0, wz0, 32) - 0.5) * SCATTER_CELL * 0.4
+    const h = getTerrainHeight(wx, wz) + GROUND_Y_OFFSET
+    if (h >= biomeSettings.waterLevel + 1.0 && h <= biomeSettings.dirtEnd + 2) {
+      const bigSeed = seededRand(wx0, wz0, 33)
+      const bigRuin = createLargeRuin(bigSeed)
+      const scale = 2.2 + seededRand(wx0, wz0, 34) * 1.3
+      bigRuin.position.set(wx, h - 0.6 * scale, wz)
+      bigRuin.scale.setScalar(scale)
+      bigRuin.rotation.y = seededRand(wx0, wz0, 35) * Math.PI * 2
+      scatterGroup.add(bigRuin); objs.push(bigRuin)
+      addSolidCollider(bigRuin, key, 4.5 * scale, 3 * scale, 4 * scale)
+    }
+  }
+
+  // Add colliders for rocks
+  if (r1 < 0.28 && objs.length > 0) {
+    const rockMesh = objs[0]
+    if (rockMesh && rockMesh.isMesh) {
+      const s = rockMesh.scale
+      addDestructibleCollider(rockMesh, key, s.x * 0.6, s.y * 0.5, s.z * 0.6, false)
+    }
+  }
+
+  scatterCells.set(key, objs)
+}
+
+function removeCell(key) {
+  const objs = scatterCells.get(key)
+  if (!objs) return
+  for (const obj of objs) {
+    scatterGroup.remove(obj)
+    obj.traverse(c => {
+      if (c.geometry && !_rockGeoCache.includes(c.geometry) && !_sharedGeos?.has(c.geometry) && !_bushGeoCache.some(bg => { let found = false; bg.traverse(bc => { if (bc.geometry === c.geometry) found = true }); return found })) {
+        c.geometry.dispose()
+      }
+    })
+  }
+  // Collect handles to remove, then remove outside iteration
+  const destroyHandles = []
+  const solidHandles = []
+  for (const [handle, info] of destructibleMap) {
+    if (info.cellKey === key) destroyHandles.push(handle)
+  }
+  for (const [handle, info] of solidColliders) {
+    if (info.cellKey === key) solidHandles.push(handle)
+  }
+  for (const handle of destroyHandles) {
+    const info = destructibleMap.get(handle)
+    if (info) {
+      try { physicsWorld.removeCollider(info.collider, false) } catch (e) {}
+      try { physicsWorld.removeRigidBody(info.body) } catch (e) {}
+      destructibleMap.delete(handle)
+      removeHpBar(handle)
+    }
+  }
+  for (const handle of solidHandles) {
+    const info = solidColliders.get(handle)
+    if (info) {
+      try { physicsWorld.removeCollider(info.collider, false) } catch (e) {}
+      try { physicsWorld.removeRigidBody(info.body) } catch (e) {}
+      solidColliders.delete(handle)
+    }
+  }
+  scatterCells.delete(key)
+}
+
+let _lastScatterCX = null, _lastScatterCZ = null
+let _scatterBuildQueue = []
+const SCATTER_CELLS_PER_FRAME = 2
+const MAX_SCATTER_CELLS = 800
+
+function updateScatter(px, pz) {
+  const cx = Math.round(px / SCATTER_CELL)
+  const cz = Math.round(pz / SCATTER_CELL)
+
+  // Skip if player hasn't moved to a new cell
+  if (cx === _lastScatterCX && cz === _lastScatterCZ) return
+  _lastScatterCX = cx; _lastScatterCZ = cz
+
+  // Remove far-away cells first — remove MORE per update to keep count bounded
+  const maxDist = SCATTER_RANGE + 2
+  let removed = 0
+  for (const key of [...scatterCells.keys()]) {
+    if (removed >= 12) break
+    const sep = key.indexOf(',')
+    const kx = parseInt(key.substring(0, sep))
+    const kz = parseInt(key.substring(sep + 1))
+    if (Math.abs(kx - cx) > maxDist || Math.abs(kz - cz) > maxDist) {
+      removeCell(key)
+      removed++
+    }
+  }
+
+  // Queue cells to build (sorted by distance so nearest load first)
+  // Only queue if we're under the cell cap
+  if (scatterCells.size < MAX_SCATTER_CELLS) {
+    _scatterBuildQueue = []
+    for (let gx = -SCATTER_RANGE; gx <= SCATTER_RANGE; gx++) {
+      for (let gz = -SCATTER_RANGE; gz <= SCATTER_RANGE; gz++) {
+        const key = (cx + gx) + ',' + (cz + gz)
+        if (!scatterCells.has(key)) {
+          _scatterBuildQueue.push({ cx: cx + gx, cz: cz + gz, d: gx * gx + gz * gz })
+        }
+      }
+    }
+    _scatterBuildQueue.sort((a, b) => a.d - b.d)
+    // Cap queue length to avoid massive backlogs
+    if (_scatterBuildQueue.length > 80) _scatterBuildQueue.length = 80
+  }
+}
+
+function tickScatterBuild() {
+  if (scatterCells.size >= MAX_SCATTER_CELLS) return
+  const count = Math.min(SCATTER_CELLS_PER_FRAME, _scatterBuildQueue.length)
+  for (let i = 0; i < count; i++) {
+    const item = _scatterBuildQueue.shift()
+    // Double-check cell wasn't already built while queued
+    const key = item.cx + ',' + item.cz
+    if (scatterCells.has(key)) continue
+    buildCell(item.cx, item.cz)
+  }
+}
+
+updateScatter(0, 0)
+// Finish initial scatter synchronously
+while (_scatterBuildQueue.length > 0) tickScatterBuild()
+
+let windDustIndex = 0
+let windTime = 0
+
+// Cache terrain heights for wind dust to avoid per-particle noise lookups
+let _windHeightCache = 0, _windHeightCacheX = -99999, _windHeightCacheZ = -99999
+function spawnWindDust(cx, cy, cz) {
+  const i = windDustIndex % WIND_DUST_COUNT; windDustIndex++
+  const d = windDustData[i]
+  const angle = Math.random() * Math.PI * 2
+  const dist = Math.random() * windSettings.spawnRadius
+  d.x = cx + Math.cos(angle) * dist
+  d.z = cz + Math.sin(angle) * dist
+  // Use cached height from car pos instead of per-particle noise
+  d.y = cy + 0.5 + Math.random() * windSettings.spawnHeight
+  d.vx = windSettings.dirX * (0.6 + Math.random() * 0.4)
+  d.vy = (Math.random() - 0.4) * 0.5
+  d.vz = windSettings.dirZ * (0.6 + Math.random() * 0.4)
+  d.maxLife = windSettings.lifetime + Math.random() * windSettings.lifetimeVariance
+  d.life = d.maxLife
+  d.size = windSettings.particleSize + Math.random() * windSettings.sizeVariance
+  d.opacity = windSettings.opacity * (0.3 + Math.random() * 0.7)
+  d.wobblePhase = Math.random() * Math.PI * 2
+}
+
+function updateWindDust(dt, cx, cy, cz) {
+  windTime += dt
+  const gustX = Math.sin(windTime * 0.7) * windSettings.gustStrength
+  const gustZ = Math.cos(windTime * 0.5) * windSettings.gustStrength * 0.6
+  
+  for (let i = 0; i < WIND_DUST_COUNT; i++) {
+    const d = windDustData[i]
+    if (d.life <= 0) {
+      _dustMat4.makeScale(0, 0, 0)
+      windDustIMesh.setMatrixAt(i, _dustMat4)
+      windDustColors[i*3] = 0; windDustColors[i*3+1] = 0; windDustColors[i*3+2] = 0
+      continue
+    }
+    d.life -= dt
+    const turbX = Math.sin(windTime * 3.1 + d.wobblePhase) * windSettings.turbulence
+    const turbZ = Math.cos(windTime * 2.7 + d.wobblePhase * 1.3) * windSettings.turbulence * 0.8
+    const wobble = Math.sin(windTime * d.wobbleSpeed + d.wobblePhase) * d.wobbleAmp
+    d.vx += (gustX + turbX) * dt
+    d.vy += wobble * dt * 0.5
+    d.vz += (gustZ + turbZ) * dt
+    d.vx *= windSettings.drag; d.vy *= windSettings.drag; d.vz *= windSettings.drag
+    d.x += d.vx * dt; d.y += d.vy * dt; d.z += d.vz * dt
+    
+    // Simple floor clamp — skip expensive per-particle terrain lookup
+    if (d.y < biomeSettings.waterLevel + 0.3) d.y = biomeSettings.waterLevel + 0.3 + Math.random() * 0.5
+    
+    const t = Math.max(0, d.life / d.maxLife)
+    const fadeIn = Math.min(1, (d.maxLife - d.life) * 3)
+    const fadeOut = t < 0.3 ? t / 0.3 : 1
+    const alpha = fadeIn * fadeOut
+    const s = (d.size * 0.08) * alpha
+    
+    const distFromCam = Math.sqrt((d.x - cx) ** 2 + (d.z - cz) ** 2)
+    const distFade = Math.max(0, 1 - distFromCam / (windSettings.spawnRadius * 1.2))
+    
+    windDustColors[i*3] = 0.76
+    windDustColors[i*3+1] = 0.62
+    windDustColors[i*3+2] = 0.38
+    
+    _dustPos.set(d.x, d.y, d.z)
+    _dustScale.set(s * distFade, s * distFade, s * distFade)
+    _dustMat4.compose(_dustPos, camera.quaternion, _dustScale)
+    windDustIMesh.setMatrixAt(i, _dustMat4)
+  }
+  windDustIMesh.instanceMatrix.needsUpdate = true
+  windDustIMesh.instanceColor.needsUpdate = true
+}
+
+let splashIndex = 0
+function emitSplash(wx, wy, wz, vx, vy, vz, count) {
+  for (let n = 0; n < count; n++) {
+    const i = splashIndex % SPLASH_COUNT; splashIndex++
+    const d = splashData[i]
+    d.x = wx + (Math.random() - 0.5) * splashSettings.spread
+    d.y = wy + Math.random() * 0.15
+    d.z = wz + (Math.random() - 0.5) * splashSettings.spread
+    const angle = Math.random() * Math.PI * 2
+    const outSpeed = splashSettings.velocitySpread * (0.5 + Math.random() * 0.5)
+    d.vx = vx * 0.1 + Math.cos(angle) * outSpeed
+    d.vy = splashSettings.upwardForce * (0.5 + Math.random() * 0.5)
+    d.vz = vz * 0.1 + Math.sin(angle) * outSpeed
+    d.gravity = 6 + Math.random() * 4
+    d.maxLife = splashSettings.lifetime + Math.random() * splashSettings.lifetimeVariance
+    d.life = d.maxLife; d.size = 0.08 + Math.random() * 0.15
+    d.opacity = splashSettings.opacity * (0.6 + Math.random() * 0.4)
+  }
+}
+
+function updateSplashParticles(dt) {
+  for (let i = 0; i < SPLASH_COUNT; i++) {
+    const d = splashData[i]
+    if (d.life <= 0) { _dustMat4.makeScale(0, 0, 0); splashIMesh.setMatrixAt(i, _dustMat4); splashColors[i*3]=0; splashColors[i*3+1]=0; splashColors[i*3+2]=0; continue }
+    d.life -= dt; d.x += d.vx * dt; d.vy -= d.gravity * dt; d.y += d.vy * dt; d.z += d.vz * dt
+    d.vx *= splashSettings.drag; d.vz *= splashSettings.drag
+    const t = Math.max(0, d.life / d.maxLife)
+    const smoothT = t * t * (3 - 2 * t)
+    const grow = d.size * (1 + (1 - t) * 0.8) * smoothT
+    const white = 0.3 * (1 - t)
+    splashColors[i*3] = Math.min(1, splashSettings.colorR + white)
+    splashColors[i*3+1] = Math.min(1, splashSettings.colorG + white)
+    splashColors[i*3+2] = Math.min(1, splashSettings.colorB + white * 0.5)
+    _dustPos.set(d.x, d.y, d.z); _dustScale.set(grow, grow, grow)
+    _dustMat4.compose(_dustPos, camera.quaternion, _dustScale)
+    splashIMesh.setMatrixAt(i, _dustMat4)
+  }
+  splashIMesh.instanceMatrix.needsUpdate = true; splashIMesh.instanceColor.needsUpdate = true
+}
+
+let dustIndex = 0
+function emitDust(wx, wy, wz, vx, vy, vz, count) {
+  const c = count * 3
+  for (let n = 0; n < c; n++) {
+    const i = dustIndex % DUST_COUNT; dustIndex++
+    const d = dustData[i]
+    d.x = wx + (Math.random() - 0.5) * dustSettings.spread
+    d.y = wy - WHEEL_R * 0.8 + Math.random() * 0.1
+    d.z = wz + (Math.random() - 0.5) * dustSettings.spread
+    d.vx = vx * 0.15 + (Math.random() - 0.5) * dustSettings.velocitySpread * 0.5
+    d.vy = Math.random() * dustSettings.upwardForce * 0.5 + 0.25
+    d.vz = vz * 0.15 + (Math.random() - 0.5) * dustSettings.velocitySpread * 0.5
+    d.maxLife = dustSettings.lifetime + Math.random() * dustSettings.lifetimeVariance
+    d.life = d.maxLife; d.size = 0.15 + Math.random() * 0.25
+    d.opacity = dustSettings.opacity * (0.7 + Math.random() * 0.3)
+  }
+}
+
+function updateDustParticles(dt) {
+  for (let i = 0; i < DUST_COUNT; i++) {
+    const d = dustData[i]
+    if (d.life <= 0) { _dustMat4.makeScale(0, 0, 0); dustIMesh.setMatrixAt(i, _dustMat4); dustColors[i*3]=0; dustColors[i*3+1]=0; dustColors[i*3+2]=0; continue }
+    d.life -= dt; d.x += d.vx * dt; d.y += d.vy * dt; d.z += d.vz * dt
+    d.vx *= dustSettings.drag; d.vy *= (dustSettings.drag - 0.01); d.vz *= dustSettings.drag
+    const t = Math.max(0, d.life / d.maxLife)
+    const smoothT = t * t * (3 - 2 * t)
+    const grow = d.size * (1 + (1 - t) * 1.5) * smoothT
+    const colorT = 1 - t
+    dustColors[i*3] = dustSettings.colorR + (dustSettings.colorR2 - dustSettings.colorR) * colorT
+    dustColors[i*3+1] = dustSettings.colorG + (dustSettings.colorG2 - dustSettings.colorG) * colorT
+    dustColors[i*3+2] = dustSettings.colorB + (dustSettings.colorB2 - dustSettings.colorB) * colorT
+    _dustPos.set(d.x, d.y, d.z); _dustScale.set(grow, grow, grow)
+    _dustMat4.compose(_dustPos, camera.quaternion, _dustScale)
+    dustIMesh.setMatrixAt(i, _dustMat4)
+  }
+  dustIMesh.instanceMatrix.needsUpdate = true; dustIMesh.instanceColor.needsUpdate = true
+}
+
+let lastGroundX = 0, lastGroundZ = 0
+let jumpState = 'ready', jumpTimer = 0, prevSpace = false
+
+function resetCar() {
+  const h = getTerrainHeight(0, 0) + 3
+  chassisBody.setTranslation({ x: 0, y: h, z: 0 }, true)
+  chassisBody.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true)
+  chassisBody.setLinvel({ x: 0, y: 0, z: 0 }, true)
+  chassisBody.setAngvel({ x: 0, y: 0, z: 0 }, true)
+  wheelSpins.fill(0)
+}
+
+async function animate() {
+  try {
+  const accel = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0)
+  const steer = (keys.KeyA ? 1 : 0) - (keys.KeyD ? 1 : 0)
+  const spaceDown = !!keys.Space
+  const jumpPressed = spaceDown && !prevSpace
+  prevSpace = spaceDown
+  const boosting = !!keys.ShiftLeft || !!keys.ShiftRight
+  if (keys.KeyR) { resetCar(); keys.KeyR = false }
+
+  const vel = chassisBody.linvel()
+  const fwd = tmpV.set(1, 0, 0).applyQuaternion(chassisQuat)
+  const forwardSpeed = fwd.x * vel.x + fwd.y * vel.y + fwd.z * vel.z
+  const speed = Math.sqrt(vel.x ** 2 + vel.y ** 2 + vel.z ** 2)
+
+  const topSpeed = carSettings.maxSpeed * (boosting ? carSettings.boostMultiplier : 1)
+  const overSpeed = Math.max(0, Math.abs(forwardSpeed) - topSpeed)
+  let engineForce = (accel * carSettings.acceleration * (boosting ? carSettings.boostMultiplier : 1)) / (1 + overSpeed)
+  let brake = 0
+  if (!accel) brake = carSettings.deceleration * 0.15
+  if (speed > 0.5 && ((accel > 0 && forwardSpeed < -0.5) || (accel < 0 && forwardSpeed > 0.5))) { brake = carSettings.deceleration; engineForce = 0 }
+
+  const chassisUp = tmpV.set(0, 1, 0).applyQuaternion(chassisQuat)
+  const isUpsideDown = chassisUp.y < Math.cos((84 * Math.PI) / 180)
+
+  if (isUpsideDown && jumpPressed) {
+    const mass = chassisBody.mass()
+    chassisBody.applyImpulse({ x: 0, y: carSettings.flipForce * mass, z: 0 }, true)
+    const torque = tmpV.set(1, 0, 0).applyQuaternion(chassisQuat).multiplyScalar(carSettings.flipForce * 0.66 * mass)
+    chassisBody.applyTorqueImpulse({ x: torque.x, y: torque.y, z: torque.z }, true)
+    jumpState = 'cooldown'; jumpTimer = 0
+  }
+
+  let wheelsOnGround = 0
+  for (let i = 0; i < 4; i++) if (vehicle.wheelIsInContact(i)) wheelsOnGround++
+  if (!isUpsideDown && jumpState === 'ready' && jumpPressed && wheelsOnGround >= 2) { jumpState = 'crouching'; jumpTimer = 0 }
+
+  if (jumpState === 'crouching') {
+    jumpTimer += FIXED_DT
+    for (let i = 0; i < 4; i++) { vehicle.setWheelSuspensionRestLength(i, 0.05); vehicle.setWheelSuspensionStiffness(i, 80) }
+    if (jumpTimer >= carSettings.jumpCrouchTime) {
+      for (let i = 0; i < 4; i++) { vehicle.setWheelSuspensionRestLength(i, SUSP_REST); vehicle.setWheelSuspensionStiffness(i, 12) }
+      const up = tmpV.set(0, 1, 0).applyQuaternion(chassisQuat)
+      const mass = chassisBody.mass()
+      chassisBody.applyImpulse({ x: up.x * carSettings.jumpForce * mass, y: up.y * carSettings.jumpForce * mass, z: up.z * carSettings.jumpForce * mass }, true)
+      jumpState = 'cooldown'; jumpTimer = 0
+    }
+  }
+  if (jumpState === 'cooldown') { jumpTimer += FIXED_DT; if (jumpTimer > 0.3 && wheelsOnGround >= 2) jumpState = 'ready' }
+
+  const steerAngle = steer * carSettings.steer * Math.sqrt(carSettings.acceleration / 5)
+  vehicle.setWheelSteering(0, steerAngle); vehicle.setWheelSteering(1, steerAngle)
+  for (let i = 0; i < 4; i++) { vehicle.setWheelEngineForce(i, engineForce); vehicle.setWheelBrake(i, brake); vehicle.setWheelFrictionSlip(i, carSettings.grip) }
+
+  if (chassisPos.y < biomeSettings.waterLevel) {
+    const v = chassisBody.linvel(); const drag = 0.92
+    chassisBody.setLinvel({ x: v.x * drag, y: v.y * drag, z: v.z * drag }, true)
+  }
+
+  try { vehicle.updateVehicle(FIXED_DT) } catch (e) {}
+  try { physicsWorld.step() } catch (e) { console.warn('Physics step failed:', e) }
+
+  const p = chassisBody.translation(); const r = chassisBody.rotation()
+  chassisPos.set(p.x, p.y, p.z); chassisQuat.set(r.x, r.y, r.z, r.w)
+  chassisGroup.position.copy(chassisPos); chassisGroup.quaternion.copy(chassisQuat)
+
+  for (let i = 0; i < 4; i++) {
+    const conn = wheelConns[i]
+    const inContact = vehicle.wheelIsInContact(i)
+    const suspLen = inContact ? (vehicle.wheelSuspensionLength(i) ?? SUSP_REST) : SUSP_REST
+    tmpV.set(conn.x, conn.y - suspLen, conn.z).applyQuaternion(chassisQuat).add(chassisPos)
+    wheelDebugMeshes[i].position.copy(tmpV)
+    wheelMeshes[i].position.x = tmpV.x
+    wheelMeshes[i].position.y = THREE.MathUtils.lerp(wheelMeshes[i].position.y, tmpV.y, carSettings.tireLerp)
+    wheelMeshes[i].position.z = tmpV.z
+    tmpQ.copy(chassisQuat)
+    if (i < 2) tmpQ.multiply(tmpQ2.setFromAxisAngle(UP, steerAngle))
+    if (inContact) wheelSpins[i] -= (forwardSpeed / WHEEL_R) * FIXED_DT
+    tmpQ.multiply(tmpQ2.setFromAxisAngle(SPIN_AXIS, wheelSpins[i]))
+    wheelDebugMeshes[i].quaternion.copy(tmpQ)
+    wheelMeshes[i].quaternion.slerp(tmpQ, carSettings.tireLerp)
+  }
+
+  const snapX = Math.round(chassisPos.x / GROUND_SNAP) * GROUND_SNAP
+  const snapZ = Math.round(chassisPos.z / GROUND_SNAP) * GROUND_SNAP
+  if (snapX !== lastGroundX || snapZ !== lastGroundZ) { lastGroundX = snapX; lastGroundZ = snapZ; updateGround(snapX, snapZ) }
+
+  // Incremental updates — spread across frames
+  tickGround()
+  tickHeightfield()
+  tickHeightfieldFinalize()
+  tickScatterBuild()
+
+  // Check if scatter needs new cells — every 20 frames
+  if (!animate._scatterFrame) animate._scatterFrame = 0
+  if (++animate._scatterFrame % 20 === 0) {
+    updateScatter(chassisPos.x, chassisPos.z)
+    // Also do extra cleanup if cell count is getting high
+    if (scatterCells.size > MAX_SCATTER_CELLS * 0.9) {
+      const cx = Math.round(chassisPos.x / SCATTER_CELL)
+      const cz = Math.round(chassisPos.z / SCATTER_CELL)
+      const maxDist = SCATTER_RANGE + 2
+      let cleaned = 0
+      for (const key of [...scatterCells.keys()]) {
+        if (cleaned >= 20) break
+        const sep = key.indexOf(',')
+        const kx = parseInt(key.substring(0, sep))
+        const kz = parseInt(key.substring(sep + 1))
+        if (Math.abs(kx - cx) > maxDist || Math.abs(kz - cz) > maxDist) {
+          removeCell(key); cleaned++
+        }
+      }
+    }
+  }
+
+  waterMesh.position.x = chassisPos.x; waterMesh.position.z = chassisPos.z
+
+  const dxHF = chassisPos.x - hfCenter.x; const dzHF = chassisPos.z - hfCenter.z
+  if (!_hfPending && _hfFinalizeStage === 0 && dxHF * dxHF + dzHF * dzHF > HF_RETHRESHOLD * HF_RETHRESHOLD) createHeightfield(chassisPos.x, chassisPos.z)
+
+  const azRad = (lightSettings.azimuth * Math.PI) / 180
+  const elRad = (lightSettings.elevation * Math.PI) / 180
+  const lightDist = 30
+  dirLight.position.set(
+    chassisPos.x + Math.cos(elRad) * Math.sin(azRad) * lightDist,
+    chassisPos.y + Math.sin(elRad) * lightDist,
+    chassisPos.z + Math.cos(elRad) * Math.cos(azRad) * lightDist)
+  dirLight.target.position.copy(chassisPos); dirLight.target.updateMatrixWorld()
+
+  if (carSettings.debug) updateDebug()
+
+  if (carSettings.orbitControls) { orbit.target.lerp(chassisPos, 0.1); orbit.update() }
+  else {
+    const camFwd = tmpV.set(1, 0, 0).applyQuaternion(chassisQuat)
+    cameraIdeal.copy(chassisPos).addScaledVector(camFwd, -cameraSettings.distance)
+    cameraIdeal.y = chassisPos.y + cameraSettings.height
+    camera.position.lerp(cameraIdeal, cameraSettings.smoothing)
+    camera.lookAt(chassisPos.x, chassisPos.y + cameraSettings.lookHeight, chassisPos.z)
+  }
+
+  const groundSpeed = Math.sqrt(vel.x * vel.x + vel.z * vel.z)
+  const inWater = chassisPos.y < biomeSettings.waterLevel + 1.5
+  if (dustSettings.enabled && wheelsOnGround >= 2 && groundSpeed > dustSettings.minSpeed && !inWater) {
+    const emitCount = Math.min(3, Math.floor(groundSpeed * dustSettings.emitRate))
+    for (let i = 0; i < 4; i++) if (vehicle.wheelIsInContact(i)) { const wp = wheelMeshes[i].position; emitDust(wp.x, wp.y, wp.z, -vel.x, 0, -vel.z, emitCount) }
+  }
+  updateDustParticles(FIXED_DT)
+  updateDebris(FIXED_DT)
+
+  // Check collisions with destructible objects — limit to 3 destructions per frame
+  const cVel = chassisBody.linvel()
+  const cSpeed = Math.sqrt(cVel.x ** 2 + cVel.y ** 2 + cVel.z ** 2)
+  if (cSpeed > 3 && destructibleMap.size > 0) {
+    const toDamage = []
+    try {
+      const chassisCol = chassisBody.collider(0)
+      if (chassisCol) {
+        physicsWorld.contactPairsWith(chassisCol, (otherCollider) => {
+          if (otherCollider && toDamage.length < 3) {
+            const handle = otherCollider.handle
+            if (destructibleMap.has(handle)) {
+              toDamage.push(handle)
+            }
+          }
+        })
+      }
+    } catch (e) { /* physics query failed, skip */ }
+    for (const handle of toDamage) {
+      try { damageObject(handle, { x: cVel.x, y: cVel.y, z: cVel.z }, cSpeed) } catch (e) {}
+    }
+  }
+
+  // Update building shake animations for damaged big ruins
+  for (const [handle, info] of destructibleMap) {
+    if (info.shakeTimer > 0) {
+      info.shakeTimer -= FIXED_DT
+      const intensity = info.shakeTimer * 1.5
+      info.mesh.position.x = info.originalPos.x + (Math.random() - 0.5) * intensity
+      info.mesh.position.z = info.originalPos.z + (Math.random() - 0.5) * intensity
+      if (info.shakeTimer <= 0) {
+        info.mesh.position.x = info.originalPos.x
+        info.mesh.position.z = info.originalPos.z
+      }
+    }
+  }
+
+  // Update HP bars above damaged buildings
+  updateHpBars(camera)
+
+  // Apply screen shake to camera
+  if (screenShakeIntensity > 0.01) {
+    camera.position.x += (Math.random() - 0.5) * screenShakeIntensity
+    camera.position.y += (Math.random() - 0.5) * screenShakeIntensity * 0.5
+    camera.position.z += (Math.random() - 0.5) * screenShakeIntensity
+    screenShakeIntensity *= screenShakeDecay
+    if (screenShakeIntensity < 0.01) screenShakeIntensity = 0
+  }
+
+  if (splashSettings.enabled && inWater && groundSpeed > splashSettings.minSpeed) {
+    const sc = Math.min(5, Math.floor(groundSpeed * splashSettings.emitRate))
+    for (let i = 0; i < 4; i++) { const wp = wheelMeshes[i].position; if (wp.y < biomeSettings.waterLevel + 0.5) emitSplash(wp.x, biomeSettings.waterLevel, wp.z, -vel.x, 0, -vel.z, sc) }
+  }
+  updateSplashParticles(FIXED_DT)
+
+  // Spawn and update ambient wind dust
+  const windSpawnRate = 3
+  for (let s = 0; s < windSpawnRate; s++) {
+    spawnWindDust(chassisPos.x, chassisPos.y, chassisPos.z)
+  }
+  updateWindDust(FIXED_DT, camera.position.x, camera.position.y, camera.position.z)
+
+  // Update coins — bob, spin, collect
+  const coinTime = performance.now() * 0.001
+  for (const [key, cellObjs] of scatterCells) {
+    for (let ci = cellObjs.length - 1; ci >= 0; ci--) {
+      const obj = cellObjs[ci]
+      if (!obj.userData.isCoin || obj.userData.collected) continue
+      const dx = obj.position.x - chassisPos.x
+      const dy = obj.position.y - chassisPos.y
+      const dz = obj.position.z - chassisPos.z
+      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz)
+
+      // Collect
+      if (dist < coinSettings.collectDistance) {
+        obj.userData.collected = true
+        coinScore++
+        updateCoinHud()
+        // Collect animation — scale down and fly up
+        const startScale = obj.scale.x
+        const startY = obj.position.y
+        let anim = 0
+        const collectAnim = () => {
+          anim += 0.04
+          if (anim >= 1) {
+            scatterGroup.remove(obj)
+            cellObjs.splice(cellObjs.indexOf(obj), 1)
+            return
+          }
+          const t = anim
+          const ease = 1 - (1 - t) * (1 - t)
+          obj.scale.setScalar(startScale * (1 - ease))
+          obj.position.y = startY + ease * 3
+          requestAnimationFrame(collectAnim)
+        }
+        collectAnim()
+        // Spawn sparkle particles
+        spawnDebris(obj.position.x, obj.position.y, obj.position.z, 0, 2, 0, 8, 0.3, 0, false)
+        continue
+      }
+
+      // Bob and spin
+      const phase = obj.userData.phase || 0
+      obj.position.y = obj.userData.baseY + Math.sin(coinTime * coinSettings.bobSpeed + phase) * coinSettings.bobHeight
+      obj.rotation.y = coinTime * coinSettings.spinSpeed + phase
+
+      // Glow faces camera
+      if (obj.userData.glowMesh) {
+        obj.userData.glowMesh.quaternion.copy(camera.quaternion)
+        // Convert to local space
+        const parentQuat = obj.quaternion.clone().invert()
+        obj.userData.glowMesh.quaternion.premultiply(parentQuat)
+        const pulse = 0.5 + Math.sin(coinTime * 4 + phase) * 0.15
+        obj.userData.glowMesh.material.opacity = pulse
+      }
+    }
+  }
+
+  if (chassisPos.y < -30) resetCar()
+
+  renderer.render(scene, camera)
+  stats.update()
+  try { await renderer.resolveTimestampsAsync('render'); await renderer.resolveTimestampsAsync('compute') } catch (e) {}
+  } catch (err) { console.error('Animation loop error:', err) }
+}
+
+setLoading('Ready', 100)
+const loaderEl = document.getElementById('loader')
+if (loaderEl) { setTimeout(() => { loaderEl.style.opacity = '0'; setTimeout(() => loaderEl.remove(), 600) }, 300) }
+
+renderer.setAnimationLoop(animate)
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix()
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.setSize(innerWidth, innerHeight)
+})
+  </script>
+</body>
+</html>
