@@ -1,62 +1,40 @@
-# 🚗 TERRAIN VEHICLE 3D
+# 🚗 RPG CAR GAME — 3D OFF-ROAD ADVENTURE
 
-> 🌍 A browser-based 3D off-road driving experience built with Three.js WebGPU, Rapier 3D physics, procedural terrain, destructible environments, dynamic biomes, particles, collectibles, and real-time vehicle tuning.
+> **Drive • Explore • Collect • Upgrade • Crash • Conquer**
 
-<p align="center">
-
-**🚗 DRIVE • EXPLORE • BOOST • JUMP • CRASH • COLLECT 🌄**
-
-</p>
-
-<p align="center">
-Drive a physics-based terrain vehicle across a procedurally generated world, explore desert and forest regions, cross water, destroy objects, collect coins, and tune almost every part of the experience in real time.
-</p>
+A browser-based 3D off-road driving game powered by **Three.js WebGPU** and **Rapier 3D physics**. Explore a procedurally generated world containing desert and forest environments, drive through water, collect coins, destroy objects, perform jumps and flips, and upgrade your vehicle as you explore.
 
 ---
 
-# 🌄 About The Game
+## 🎮 About The Game
 
-**TERRAIN VEHICLE 3D** is a real-time browser 3D driving simulation focused on off-road exploration, physics-based vehicle movement, procedural terrain generation, environmental effects, and interactive world objects.
+**RPG Car Game** combines physics-based driving with a lightweight roguelike upgrade system.
 
-The world is generated dynamically around the vehicle, allowing the player to keep driving through a large terrain without loading one giant static map.
+Instead of driving on a fixed static map, the terrain and environmental objects are generated dynamically around the vehicle. This creates a large, continuous exploration experience while keeping the browser workload manageable.
 
 The game combines:
 
 ```text
-🚗 VEHICLE PHYSICS
+🚗 PHYSICS-BASED DRIVING
         +
 🌄 PROCEDURAL TERRAIN
         +
-🌵 MULTIPLE BIOMES
+🏜️ DESERT + FOREST BIOMES
+        +
+🌊 WATER
+        +
+🪙 COIN COLLECTION
         +
 💥 DESTRUCTIBLE OBJECTS
         +
-🪙 COLLECTIBLES
+🚀 BOOST
         +
-🌊 WATER EFFECTS
+🦘 JUMP & FLIPS
         +
-💨 PARTICLES
+🛠️ RPG UPGRADES
         +
-⚙️ LIVE SETTINGS
+⚙️ REAL-TIME SETTINGS
 ```
-
----
-
-# 🎯 Main Objectives
-
-* 🚗 Drive the terrain vehicle
-* 🌄 Explore the procedural world
-* 🏜️ Explore desert terrain
-* 🌲 Explore forest terrain
-* 🌊 Drive through water
-* 🚀 Use boost to reach higher speeds
-* 🪂 Jump across terrain
-* 💥 Crash into destructible objects
-* 🪙 Collect coins
-* 🧭 Explore continuously generated terrain
-* 🎥 Switch between follow camera and orbit camera
-* ⚙️ Tune vehicle and world settings
-* 📊 Monitor performance with the debug system
 
 ---
 
@@ -64,9 +42,9 @@ The game combines:
 
 ## 🚗 Physics-Based Vehicle
 
-The vehicle uses a four-wheel physics controller powered by **Rapier 3D**.
+The vehicle is simulated using **Rapier 3D physics** rather than simply moving a visual model.
 
-The simulation includes:
+The vehicle includes:
 
 * Four physical wheels
 * Wheel suspension
@@ -78,120 +56,104 @@ The simulation includes:
 * Vehicle grip
 * Wheel rotation
 * Suspension movement
-* Vehicle jumping
-* Vehicle flipping
-* Boosting
 * Collision physics
+* Jumping
+* Flipping
+* Boosting
 
-The vehicle reacts to the terrain instead of simply moving as a visual model.
+The physics controller uses independent wheel configuration for suspension, friction and wheel behavior.
 
 ---
 
-# 🛞 Wheel & Suspension System
+## 🛞 Advanced Wheel & Suspension Physics
 
-Each wheel is configured with independent suspension properties.
+Each of the four wheels has its own physics configuration.
 
-The physics system handles:
+The simulation handles:
 
 ```text
 Wheel Contact
      ↓
 Suspension
      ↓
-Friction
+Tire Friction
      ↓
 Vehicle Body
      ↓
-Terrain Interaction
+Terrain Collision
 ```
 
-Wheel settings include:
+Adjustable vehicle parameters include:
 
-* Suspension rest length
-* Suspension stiffness
-* Maximum suspension force
-* Suspension travel
-* Suspension compression
-* Suspension relaxation
-* Side friction
-* Tire friction slip
-
-This provides a more physical off-road driving feel.
+* Steering
+* Acceleration
+* Deceleration
+* Maximum Speed
+* Boost Multiplier
+* Jump Force
+* Jump Crouch Time
+* Flip Force
+* Tire Grip
+* Tire Lerp
 
 ---
 
-# 🚀 Boost System
+# 🚀 Nitro / Boost
 
-The vehicle includes a boost multiplier that increases its effective driving speed.
-
-### Boost
+Hold:
 
 ```text
 SHIFT
 ```
 
-Hold **Shift** to activate the boost.
+to activate the vehicle's boost.
 
-Boost can be tuned from the Settings panel.
-
-Default boost multiplier:
+The default boost multiplier is:
 
 ```text
 2.5×
 ```
 
-Boost is useful for:
+Boost can be adjusted through the in-game settings panel.
 
-* Crossing difficult terrain
-* Reaching higher speeds
-* Clearing jumps
-* Exploring the world faster
+Use it to:
+
+* Reach higher speeds
+* Cross difficult terrain
+* Clear jumps
+* Explore the world faster
 
 ---
 
-# 🪂 Jump System
+# 🦘 Jump & Flip System
 
-The vehicle can jump using:
+Press:
 
 ```text
 SPACE
 ```
 
-Jumping uses a physics impulse rather than simply teleporting the vehicle upward.
+to jump.
 
-Jump settings can be tuned in the Settings panel.
+Jumping uses a **physics impulse**, allowing the vehicle to actually leave the ground rather than simply teleporting upward.
 
-Available controls include:
+The jump system supports:
 
 * Jump force
-* Jump crouch time
+* Jump preparation
+* Airborne movement
+* Vehicle flipping
 * Flip force
 
-This allows the vehicle to perform airborne jumps and flips across uneven terrain.
+This makes hills and uneven terrain suitable for stunts and off-road driving.
 
 ---
 
-# 🔄 Vehicle Reset
+# 🌄 Procedural World
 
-If the vehicle becomes stuck or falls into an unreachable area, press:
+The game generates terrain using procedural noise.
 
-```text
-R
-```
-
-The vehicle will be reset to its starting position and orientation.
-
-The reset system also restores the vehicle's linear and angular velocity.
-
----
-
-# 🌄 Procedural Terrain
-
-The world is generated using procedural noise.
-
-Terrain height is calculated from layered noise functions to create natural-looking elevation changes.
-
-The terrain uses:
+Multiple noise layers are combined to produce natural terrain variation:
 
 ```text
 Noise Layer 1
@@ -200,55 +162,56 @@ Noise Layer 2
       +
 Noise Layer 3
       ↓
-Procedural Terrain Height
+Procedural Terrain
 ```
 
-This produces:
+The terrain can contain:
 
 * Hills
 * Valleys
 * Rolling terrain
 * Dunes
 * Forest elevations
-* Natural terrain variation
+* Natural elevation changes
+
+Terrain generation is dynamically updated as the vehicle moves.
 
 ---
 
 # 🏜️ Desert Biome
 
-The desert region contains flatter, rolling terrain designed to resemble dunes and dry landscapes.
+The desert region features flatter, rolling terrain designed around a dry landscape.
 
-The terrain system uses multiple noise layers to create variation.
+Desert terrain uses:
 
-Desert visuals include configurable:
-
-* Sand colors
-* Dirt colors
-* Terrain transitions
-* Water boundaries
+* Sand
+* Dirt
+* Grass transitions
+* Procedural elevation
 * Environmental scattering
+* Water boundaries
+
+The desert's appearance can be customized through the settings panel.
 
 ---
 
 # 🌲 Forest Biome
 
-The forest region uses a different terrain profile with more varied and steeper elevation.
+The forest region uses a different procedural terrain profile.
 
-The forest biome provides:
+It contains:
 
 * Hillier terrain
 * Steeper valleys
-* Different ground colors
-* Vegetation / environmental scattering
-* A different visual atmosphere
+* Forest-style ground colors
+* Vegetation/environmental scattering
+* Different atmospheric colors
 
 ---
 
-# 🌈 Biome Transition
+# 🌈 Dynamic Biome Transition
 
-The world contains a transition between major terrain regions.
-
-The biome system blends terrain characteristics based on the vehicle's world position.
+The game smoothly transitions between the desert and forest regions.
 
 ```text
 🏜️ DESERT
@@ -258,71 +221,68 @@ The biome system blends terrain characteristics based on the vehicle's world pos
 🌲 FOREST
 ```
 
-This allows the world to change gradually rather than switching instantly between environments.
+The transition is based on the vehicle's position in the world instead of switching environments instantly.
 
 ---
 
 # 🌊 Water System
 
-The terrain includes a configurable water level.
+The world includes a configurable water level.
 
 When the vehicle enters water:
 
 * Vehicle movement is affected
+* Additional drag is applied
+* Vehicle speed is reduced
+* Splash effects can appear
 * Physics behavior changes
-* Water particles can appear
-* Splash effects are generated
-* Vehicle speed is damped
 
-The game applies additional drag while the vehicle is below the configured water threshold.
+Water has animated shader-based surface variation.
 
 ---
 
 # 💦 Water Splash Effects
 
-When the vehicle drives through water at sufficient speed, splash particles are generated around contacting wheels.
+Driving through water at sufficient speed produces wheel splash particles.
 
-Splash effects include:
+The splash system supports configurable:
 
-* Particle emission
-* Velocity spread
-* Upward force
-* Lifetime
+* Emission rate
+* Minimum speed
+* Particle size
 * Size variation
+* Lifetime
+* Opac­ity
+* Spread
+* Velocity
+* Upward force
 * Drag
-* Configurable colors
+* Particle color
 
-The splash system can be enabled or disabled through the Settings panel.
+Splash effects can be enabled or disabled from the settings panel.
 
 ---
 
-# 💨 Dust System
+# 💨 Dust Effects
 
-Driving across dry terrain can generate dust particles behind the wheels.
+Driving over dry terrain can generate dust behind the vehicle.
 
 Dust emission depends on:
 
 * Vehicle speed
 * Wheel contact
-* Minimum speed threshold
+* Minimum speed
 * Emission rate
-* Particle lifetime
 * Particle size
-* Velocity spread
+* Lifetime
+* Spread
+* Velocity
 * Upward force
 * Drag
 
-The system automatically avoids normal dust emission while the vehicle is in water.
+Dust is automatically reduced/avoided while the vehicle is in water.
 
----
-
-# 🌬️ Ambient Wind Dust
-
-The world also contains ambient wind-driven dust particles.
-
-These particles are spawned around the vehicle and updated continuously to create additional environmental movement.
-
-This adds subtle motion to otherwise static terrain.
+The world also includes ambient wind-driven dust for additional environmental movement.
 
 ---
 
@@ -330,208 +290,168 @@ This adds subtle motion to otherwise static terrain.
 
 Coins are scattered throughout the procedural world.
 
-Coins have animated visual behavior:
-
-* Floating / bobbing motion
-* Continuous rotation
-* Glow effect
-* Collection distance
-* Collection animation
-* Sparkle particles
-
-When the vehicle approaches a coin:
+Collect them by driving close to them.
 
 ```text
-COIN FOUND
-   ↓
+COIN SPAWN
+    ↓
+BOB + ROTATE
+    ↓
+PLAYER APPROACHES
+    ↓
 COLLECT
-   ↓
+    ↓
 +1 COIN
-   ↓
-SPARKLE EFFECT ✨
+    ↓
+✨ SPARKLE EFFECT
 ```
 
-The collected coin count is displayed in the game HUD.
+Coins feature:
+
+* Floating animation
+* Continuous rotation
+* Glow
+* Collection distance
+* Collection animation
+* Sparkle effects
+
+The current coin count is displayed in the HUD.
 
 ---
 
-# 🏆 Coin System
+# 🛠️ RPG Upgrade System
 
-Each collected coin increments the current coin score.
+The game includes a **roguelike-style vehicle upgrade system**.
 
-The system tracks:
+Press:
 
 ```text
-COINS: 000
+U
 ```
 
-Coins are generated as part of the world's procedural scatter system.
+to open the upgrade shop.
 
-Their position and behavior are handled dynamically as the player explores.
+Press:
+
+```text
+U / ESC
+```
+
+to close it.
+
+Coins can be used to improve vehicle performance.
+
+### Available Upgrades
+
+| Upgrade         | Effect                    |
+| --------------- | ------------------------- |
+| ⚡ Top Speed     | Increase maximum speed    |
+| 🔥 Acceleration | Improve acceleration      |
+| 🚀 Nitro Boost  | Increase boost multiplier |
+| 🦘 Jump Power   | Increase jump strength    |
+| 🎯 Steering     | Improve steering response |
+| 🛞 Tire Grip    | Improve vehicle grip      |
+
+Each upgrade has multiple levels and becomes progressively more expensive.
+
+This creates a simple progression loop:
+
+```text
+DRIVE
+  ↓
+EXPLORE
+  ↓
+COLLECT COINS
+  ↓
+BUY UPGRADES
+  ↓
+BECOME FASTER
+  ↓
+EXPLORE FURTHER
+```
 
 ---
 
 # 💥 Destructible Environment
 
-Some objects in the environment can be destroyed by vehicle collisions.
+Certain environmental objects can be damaged and destroyed through vehicle collisions.
 
-The system supports destructible objects with physics colliders.
+High-speed impacts can trigger:
 
-Objects can receive damage when the vehicle hits them at sufficient speed.
-
-```text
-VEHICLE
-   ↓
-HIGH-SPEED COLLISION
-   ↓
-DAMAGE
-   ↓
-SHAKE
-   ↓
-DESTROY
-   ↓
-DEBRIS 💥
-```
-
----
-
-# 🏚️ Destructible Ruins
-
-The environment can contain different types of ruins and structures.
-
-Smaller destructible objects can be destroyed after a collision.
-
-Larger ruins have multiple hit points.
-
-Example:
-
-```text
-LARGE RUIN
-
-HP ███
-```
-
-Repeated collisions can reduce the object's HP until it is destroyed.
-
----
-
-# ❤️ Building Health
-
-Large destructible buildings use an HP system.
-
-When damaged:
-
-* The building shakes
-* Its HP is reduced
-* A health indicator can appear
-* Further impacts can damage it
-* The object is eventually destroyed
-
-This provides visible feedback when crashing into larger structures.
-
----
-
-# 💥 Destruction Effects
-
-When a destructible object is destroyed, the game can create:
-
+* Collision damage
+* Object shaking
+* HP reduction
 * Debris
 * Particles
 * Impact effects
 * Screen shake
 * Object removal
-* Physics interaction
 
-The system limits destruction processing per frame to help maintain performance during heavy collisions.
-
----
-
-# 📦 Dynamic World Scattering
-
-Environmental objects are generated around the player's current location.
-
-The world uses spatial cells to manage scattered objects.
-
-This allows the game to:
-
-* Generate objects near the vehicle
-* Remove distant objects
-* Limit the number of active cells
-* Reuse world space efficiently
-* Keep the scene responsive during exploration
+Large structures can have multiple hit points and require repeated impacts.
 
 ---
 
-# 🗺️ Infinite-Style Exploration
+# 🏚️ Destructible Structures
 
-The terrain is not limited to a single small static area.
+Larger environmental structures can have their own health.
 
-As the vehicle moves:
+```text
+STRUCTURE
+   ↓
+COLLISION
+   ↓
+DAMAGE
+   ↓
+HP ↓
+   ↓
+SHAKE
+   ↓
+DESTROY
+   ↓
+💥 DEBRIS
+```
+
+This makes the environment interactive instead of purely decorative.
+
+---
+
+# 🗺️ Dynamic World Generation
+
+The world is continuously managed around the player's current position.
+
+As the vehicle travels:
 
 ```text
 PLAYER MOVES
      ↓
-NEW TERRAIN AREA
+NEW AREA
      ↓
-NEW HEIGHTFIELD
+GENERATE TERRAIN
      ↓
-NEW SCATTER CELLS
+GENERATE OBJECTS
      ↓
-OLD CELLS CLEANED
+GENERATE COLLECTIBLES
+     ↓
+REMOVE DISTANT CONTENT
 ```
 
-Terrain and environment sections are updated around the player's position.
-
-This creates a continuous exploration experience.
-
----
-
-# 🔄 Dynamic Heightfield
-
-The physics terrain is updated around the vehicle as it travels.
-
-A heightfield is generated from the same procedural terrain function used by the visual world.
-
-This keeps:
-
-```text
-VISUAL TERRAIN
-       ↕
-PHYSICS TERRAIN
-```
-
-aligned during exploration.
-
----
-
-# ⚡ Incremental Terrain Updates
-
-Large terrain updates are divided into smaller processing steps.
-
-The game incrementally updates:
-
-* Ground geometry
-* Heightfield data
-* Scatter objects
-* Environment cells
-
-This helps avoid large frame-time spikes during world generation.
+Spatial cells are used to manage environmental objects and prevent the scene from accumulating unlimited objects.
 
 ---
 
 # 🎥 Camera System
 
-The game includes a third-person follow camera.
+The default camera follows the vehicle from behind and above.
 
-The camera follows the vehicle using configurable:
+Camera settings include:
 
 * Distance
 * Height
-* Look height
+* Look Height
 * Smoothing
-* Field of view
+* Field of View
 
-Default camera values provide a wide view of the vehicle and surrounding terrain.
+The camera smoothly follows the vehicle for a more natural driving experience.
 
 ---
 
@@ -543,11 +463,11 @@ Press:
 O
 ```
 
-to toggle orbit controls.
+to toggle orbit camera mode.
 
-Orbit mode allows the camera to rotate independently around the vehicle.
+Orbit mode allows the player to freely inspect the vehicle and surrounding environment.
 
-Press `O` again to return to the standard follow camera.
+Press `O` again to return to the normal follow camera.
 
 ---
 
@@ -559,554 +479,326 @@ Press:
 P
 ```
 
-to toggle debug mode.
+to toggle physics debugging.
 
-Debug mode can display physics-related visualization such as:
+Debug mode can display:
 
-* Vehicle collision box
+* Vehicle collision geometry
 * Wheel debug meshes
-* Debug lines
+* Physics debug lines
 
-The Settings panel also provides a Debug checkbox.
-
----
-
-# 📊 Performance Monitoring
-
-The project uses **stats-gl** for performance monitoring.
-
-The debug system can display information related to:
-
-* FPS
-* GPU performance
-* Frame timing
-
-This is useful when testing procedural terrain, particles, physics, and destructible objects.
+The settings panel also provides a debug toggle.
 
 ---
 
-# ⚙️ Real-Time Settings Panel
+# ⚙️ Real-Time Settings
 
-The game includes a custom settings interface.
+The game includes a custom glass-style settings interface.
 
-The settings panel uses:
-
-* Glass-style UI
-* Backdrop blur
-* Collapsible folders
-* Sliders
-* Checkboxes
-* Color pickers
-* Select controls
-
-Press the:
+Open it using the:
 
 ```text
-⚙
+⚙ Settings
 ```
 
-button in the top-right corner to open the settings panel.
+button.
 
----
+The settings system includes configurable sections for:
 
-# 🚗 Vehicle Settings
+### 🚗 Car
 
-The **Car** settings folder provides controls for:
+* Steering
+* Acceleration
+* Deceleration
+* Maximum Speed
+* Boost
+* Jump Force
+* Jump Crouch
+* Flip Force
+* Grip
+* Tire Lerp
+* Debug
+* Orbit Camera
 
-| Setting | Purpose |
-| ------- | ------- |
-| Steering | Steering response |
-| Acceleration | Vehicle acceleration |
-| Deceleration | Vehicle slowdown |
-| Max Speed | Maximum driving speed |
-| Boost | Boost multiplier |
-| Jump Force | Jump strength |
-| Jump Crouch | Jump preparation timing |
-| Flip Force | Airborne flip force |
-| Grip | Tire grip |
-| Tire Lerp | Visual tire movement smoothing |
+### 🎥 Camera
 
----
+* Distance
+* Height
+* Look Height
+* Smoothing
+* FOV
 
-# 🎥 Camera Settings
+### 🌄 Terrain
 
-The **Camera** settings folder provides:
+* Frequency
+* Amplitude
 
-| Setting | Purpose |
-| ------- | ------- |
-| Distance | Follow-camera distance |
-| Height | Camera vertical position |
-| Look Height | Camera target height |
-| Smoothing | Camera interpolation |
-| FOV | Camera field of view |
+### ☀️ Lighting
 
----
-
-# 🌄 Terrain Settings
-
-Terrain generation can be adjusted in real time.
-
-Available settings include:
-
-```text
-Frequency
-Amplitude
-```
-
-Changing these values rebuilds the terrain and heightfield.
-
-### Frequency
-
-Controls the scale of terrain variation.
-
-### Amplitude
-
-Controls the height variation of the terrain.
-
----
-
-# ☀️ Lighting Settings
-
-The lighting panel includes controls for:
-
-* Sun azimuth
-* Sun elevation
+* Sun Azimuth
+* Sun Elevation
 * Shadows
-* Shadow resolution
-* Ambient shadow color
-* Ambient intensity
-* Hemisphere sky color
+* Shadow Resolution
+* Ambient lighting
 * Hemisphere lighting
 
-Available shadow resolutions include:
+### 🌫️ Fog
 
-```text
-512
-1024
-2048
-4096
-```
+* Fog Color
+* Near Distance
+* Far Distance
 
----
+### 🎨 Biomes
 
-# 🌫️ Fog Settings
+* Water Level
+* Sand → Dirt transition
+* Dirt → Grass transition
+* Terrain transition width
+* Sand colors
+* Dirt colors
+* Grass colors
+* Water colors
 
-The environment includes configurable atmospheric fog.
+### 💨 Dust
 
-Fog controls include:
-
-```text
-Color
-Near
-Far
-```
-
-Fog helps blend distant terrain into the environment and adds depth to the world.
-
----
-
-# 🌊 Splash Settings
-
-The splash system provides real-time controls for:
-
-* Enabled
+* Enable/Disable
 * Emission rate
 * Minimum speed
-* Particle size
-* Size variance
+* Size
 * Lifetime
 * Opacity
 * Spread
-* Velocity spread
 * Upward force
 * Drag
-* Particle color
-
----
-
-# 💨 Dust Settings
-
-The dust system provides controls for:
-
-* Enabled
-* Emission rate
-* Minimum speed
-* Particle size
-* Size variance
-* Lifetime
-* Opacity
-* Spread
-* Velocity spread
-* Upward force
-* Drag
-* Primary dust color
-* Secondary dust color
-
----
-
-# 🪙 Coin Settings
-
-The coin system includes configurable properties such as:
-
-* Spawn chance
-* Coin radius
-* Coin height
-* Primary color
-* Secondary color
-* Bob speed
-* Bob height
-* Spin speed
-* Collection distance
-* Glow color
-* Glow size
-
----
-
-# 🖥️ Loading Screen
-
-The project includes a dedicated loading screen.
-
-The loader displays:
-
-```text
-Loading terrain vehicle
-
-Initializing physics…
-```
-
-and provides a progress indicator while the scene and physics system initialize.
-
-Once the environment is ready, the loading screen smoothly fades away.
 
 ---
 
 # 🎮 Controls
 
-## 🖥️ Desktop
-
-| Key / Input | Action |
-| ----------- | ------ |
-| `W` | Drive forward |
-| `S` | Reverse / brake |
-| `A` | Steer left |
-| `D` | Steer right |
-| `SHIFT` | Boost |
-| `SPACE` | Jump |
-| `R` | Reset vehicle |
-| `P` | Toggle debug mode |
-| `O` | Toggle orbit camera |
-| `U` | Open / close upgrade shop |
-| `ESC` | Close upgrade shop |
-| `Mouse` | Camera interaction in orbit mode |
+| Key     | Action                    |
+| ------- | ------------------------- |
+| `W`     | Drive Forward             |
+| `S`     | Reverse / Brake           |
+| `A`     | Steer Left                |
+| `D`     | Steer Right               |
+| `SHIFT` | Nitro / Boost             |
+| `SPACE` | Jump                      |
+| `R`     | Reset Vehicle             |
+| `P`     | Toggle Debug              |
+| `O`     | Toggle Orbit Camera       |
+| `U`     | Open / Close Upgrade Shop |
+| `ESC`   | Close Upgrade Shop        |
+| `Mouse` | Orbit Camera Interaction  |
 
 ---
 
-# 🛠️ Upgrade System
+# 🔄 Vehicle Reset
 
-The project contains an upgrade-shop interface that can be opened using:
-
-```text
-U
-```
-
-The upgrade interface can be toggled while playing and closed with:
+If the vehicle gets stuck or falls into an unreachable location, press:
 
 ```text
-U
+R
 ```
 
-or:
-
-```text
-ESC
-```
+The vehicle is returned to its starting position and its movement/rotation velocities are reset.
 
 ---
+
+# 🚗 Custom 3D Car Models
+
+The game supports optional custom GLB models.
+
+Place the following files inside:
+
+```text
+models/
+```
+
+```text
+models/
+├── chassis.glb
+└── tire.glb
+```
+
+### `chassis.glb`
+
+The main vehicle body.
+
+### `tire.glb`
+
+A single tire model that is reused across all four wheels.
+
+## If either model is missing or fails to load, the game automatically uses procedural fallback geometry instead, so the game can still run.
 
 # 🧊 Technology Stack
 
-| Technology | Purpose |
-| ---------- | ------- |
-| ⚡ Three.js | 3D rendering |
-| 🚀 WebGPU | Hardware-accelerated rendering |
-| 🧠 Three.js TSL | GPU shader / procedural effects |
-| 🧱 Rapier 3D | Vehicle and collision physics |
-| 🌄 ImprovedNoise | Procedural terrain generation |
-| 📊 Stats GL | Performance monitoring |
-| 🎮 JavaScript | Game logic |
-| 🌐 HTML5 | Application structure |
-| 🎨 CSS | Interface and settings UI |
-| 📦 CDN Import Maps | Browser dependency loading |
+| Technology          | Purpose                       |
+| ------------------- | ----------------------------- |
+| **Three.js**        | 3D rendering                  |
+| **Three.js WebGPU** | GPU-accelerated rendering     |
+| **Three.js TSL**    | GPU shader/procedural effects |
+| **Rapier 3D**       | Vehicle & collision physics   |
+| **ImprovedNoise**   | Procedural terrain generation |
+| **Stats GL**        | Performance monitoring        |
+| **JavaScript**      | Game logic                    |
+| **HTML5**           | Application structure         |
+| **CSS**             | UI and styling                |
+
+The application imports Three.js WebGPU, Three.js TSL, Rapier 3D, Three.js addons, and Stats GL through browser import maps.
 
 ---
 
-# 🔧 Core Technologies
+# ⚡ WebGPU Rendering
 
-## Three.js WebGPU
-
-The project uses the WebGPU build of Three.js rather than the traditional WebGL renderer.
-
-The application imports:
+The game uses:
 
 ```text
-three/webgpu
-three/tsl
+Three.js WebGPU
 ```
 
-This enables modern GPU-accelerated rendering and shader-based effects.
+instead of the traditional WebGL renderer.
+
+This allows the project to experiment with modern GPU-accelerated browser rendering and shader-based effects.
+
+The renderer also supports:
+
+* Anti-aliasing
+* Dynamic lighting
+* Shadows
+* Fog
+* GPU shader effects
+* Configurable rendering quality
 
 ---
 
-## Rapier 3D
+# 🧱 Rapier Physics
 
-Physics are handled by:
+Physics are powered by:
 
 ```text
 @dimforge/rapier3d-compat
 ```
 
-Rapier is responsible for:
+Rapier handles:
 
 * Rigid bodies
 * Colliders
 * Vehicle controller
-* Wheel physics
+* Wheels
 * Suspension
 * Friction
 * Collision detection
-* Destructible object physics
+* Terrain physics
+* Destructible-object physics
+
+The physics simulation runs using a fixed timestep.
 
 ---
 
-## ImprovedNoise
+# 📊 Performance
 
-The terrain uses Three.js's `ImprovedNoise` implementation to generate procedural height variation.
+The project contains several systems designed to reduce performance spikes.
 
-Multiple noise frequencies are combined to create different terrain characteristics.
+### Terrain
+
+* Incremental terrain generation
+* Dynamic heightfield updates
+* Procedural terrain rebuilding
+
+### Environment
+
+* Spatial cells
+* Dynamic object generation
+* Distant object cleanup
+
+### Physics
+
+* Fixed timestep
+* Rapier vehicle controller
+* Controlled collision processing
+
+### Rendering
+
+* Three.js WebGPU
+* Configurable shadows
+* GPU-based effects
+
+### Particles
+
+* Dust
+* Water splash
+* Ambient wind dust
+* Destruction debris
 
 ---
 
 # 📁 Project Structure
 
 ```text
-3D-car-game/
+RPG-CAR-GAME/
 │
 ├── 📄 index.html
 ├── 📄 README.md
 ├── 📄 LICENSE
-└── 📄 .gitignore
+├── 📄 run.bat
+│
+└── 📁 models/
+    ├── 🚗 chassis.glb
+    └── 🛞 tire.glb
 ```
 
-### Main Application
-
-```text
-index.html
-```
-
-The project is intentionally compact, with the game engine, UI, physics integration, terrain generation, rendering, settings system, and gameplay logic contained in the main HTML application.
-
----
-
-# 🌐 External Dependencies
-
-The project uses browser import maps to load dependencies from CDN sources.
-
-Main dependencies include:
-
-```text
-Three.js 0.183.1
-Rapier 3D 0.14.0
-Stats GL 2.4.2
-```
-
-Three.js addons used include:
-
-```text
-GLTFLoader
-DRACOLoader
-OrbitControls
-ImprovedNoise
-```
-
----
-
-# ⚙️ Requirements
-
-Before running the project, make sure you have:
-
-* A modern web browser
-* WebGPU support
-* Hardware acceleration enabled
-* Internet connection for CDN dependencies
-
-Recommended:
-
-```text
-Modern Chrome / Chromium-based browser
-WebGPU-capable GPU
-Hardware acceleration enabled
-```
-
----
-
-# 🚀 Installation
-
-Clone the repository:
-
-```bash
-git clone https://github.com/rsamwilson2323-cloud/3D-car-game.git
-```
-
-Enter the project directory:
-
-```bash
-cd 3D-car-game
-```
-
-The project does not require a traditional `npm install` workflow for its main dependencies because the browser loads them through import maps and CDN modules.
-
----
-
-# ▶️ Run The Game
-
-Because the project uses ES modules and browser imports, running it through a local web server is recommended.
-
-Using `npx`:
-
-```bash
-npx serve .
-```
-
-Then open the local address shown by the server.
-
-A typical address is:
-
-```text
-http://localhost:3000
-```
-
----
-
-# 🌐 Alternative Local Server
-
-If Python is installed:
-
-```bash
-python -m http.server 8000
-```
-
-Then open:
-
-```text
-http://localhost:8000
-```
+The custom models are optional because the game contains procedural fallback vehicle and tire geometry.
 
 ---
 
 # 🪟 Windows Quick Start
 
-Open Command Prompt inside the project folder:
+A launcher batch file is included for Windows.
+
+Run:
+
+```text
+run.bat
+```
+
+The launcher starts a local server using:
 
 ```bash
-cd 3D-car-game
 npx serve .
 ```
 
-Then open the URL shown in the terminal.
+and serves the game locally on the address displayed by the launcher.
 
----
+### Manual Start
 
-# 📱 Mobile / Touch Devices
+Open a terminal in the project directory and run:
 
-The current project is primarily designed around keyboard-based vehicle controls.
-
-The main driving controls are:
-
-```text
-W A S D
-SHIFT
-SPACE
-R
-P
-O
-U
+```bash
+npx serve .
 ```
 
-A desktop or laptop keyboard is recommended for the full experience.
+Then open the local address shown in the terminal.
 
 ---
 
-# 🧠 Performance
+# 🌐 Browser Requirements
 
-The project includes several systems designed to manage a large procedural world.
+Recommended:
 
-### Terrain
+* Modern Chromium-based browser
+* WebGPU-compatible GPU
+* Hardware acceleration enabled
+* Internet connection for CDN dependencies
 
-* Incremental terrain generation
-* Dynamic heightfield rebuilding
-* Spatial terrain updates
-
-### World Objects
-
-* Cell-based scatter management
-* Distant cell cleanup
-* Limited active scatter range
-
-### Physics
-
-* Fixed timestep vehicle updates
-* Rapier vehicle controller
-* Controlled collision processing
-
-### Particles
-
-* Dust particles
-* Splash particles
-* Wind particles
-* Debris particles
-
-### Rendering
-
-* Three.js WebGPU
-* GPU shader calculations
-* Dynamic lighting
-* Configurable shadow resolution
-
----
-
-# 🧹 Dynamic Resource Management
-
-The game continuously manages objects around the player.
-
-As the vehicle moves:
-
-```text
-NEW AREA
-   ↓
-GENERATE
-   ↓
-UPDATE
-   ↓
-PLAYER MOVES
-   ↓
-DISTANT AREA
-   ↓
-CLEAN UP
-```
-
-This prevents the world from endlessly accumulating objects during exploration.
+The game depends on browser-loaded CDN modules, so an active internet connection is recommended.
 
 ---
 
 # 🐛 Troubleshooting
 
-## ❌ Blank Screen
+## Blank Screen
 
-Make sure the project is being served through a local HTTP server.
-
-Do not rely on simply double-clicking the HTML file if your browser blocks module or CDN behavior.
-
-Try:
+Run the game through a local HTTP server instead of opening the HTML file directly.
 
 ```bash
 npx serve .
@@ -1114,9 +806,9 @@ npx serve .
 
 ---
 
-## ❌ WebGPU Not Available
+## WebGPU Not Available
 
-Make sure:
+Check that:
 
 * Your browser is updated
 * Hardware acceleration is enabled
@@ -1125,55 +817,19 @@ Make sure:
 
 ---
 
-## ❌ Physics Does Not Load
+## Physics Not Loading
 
-Check the browser console:
+Open:
 
 ```text
 F12 → Console
 ```
 
-Make sure the Rapier CDN module can be reached.
-
-An active internet connection is required for the external CDN dependencies.
+and check for module or Rapier loading errors.
 
 ---
 
-## ❌ Terrain Looks Incorrect
-
-Try opening the Settings panel and adjusting:
-
-```text
-Terrain
-→ Frequency
-→ Amplitude
-```
-
-Changing these values rebuilds the procedural terrain.
-
----
-
-## ❌ Low FPS
-
-Try reducing:
-
-```text
-Shadow Resolution
-```
-
-and disabling unnecessary effects such as:
-
-```text
-Dust
-Splash
-Debug
-```
-
-You can also reduce the terrain complexity through the terrain settings.
-
----
-
-## ❌ Vehicle Is Stuck
+## Vehicle Is Stuck
 
 Press:
 
@@ -1185,9 +841,21 @@ to reset the vehicle.
 
 ---
 
-# 🔬 Technical Architecture
+## Low FPS
 
-The game loop combines several systems every frame.
+Try:
+
+* Lowering shadow resolution
+* Disabling dust
+* Disabling unnecessary effects
+* Disabling debug mode
+* Reducing terrain complexity
+
+---
+
+# 🧠 Game Architecture
+
+The core game loop combines the major systems together:
 
 ```text
 INPUT
@@ -1196,11 +864,11 @@ VEHICLE CONTROL
   ↓
 RAPIER PHYSICS
   ↓
-WHEEL / SUSPENSION UPDATE
+WHEEL / SUSPENSION
   ↓
 TERRAIN UPDATE
   ↓
-SCATTER UPDATE
+WORLD SCATTER
   ↓
 PARTICLES
   ↓
@@ -1213,46 +881,7 @@ CAMERA
 WEBGPU RENDER
 ```
 
----
-
-# 🏎️ Vehicle Simulation Flow
-
-```text
-W / S
-  ↓
-Throttle
-  ↓
-Vehicle Controller
-  ↓
-Wheel Forces
-  ↓
-Suspension + Friction
-  ↓
-Rigid Body
-  ↓
-Terrain Collision
-  ↓
-Vehicle Transform
-  ↓
-Visual Car Model
-```
-
----
-
-# 💥 Collision System
-
-High-speed collisions are detected against registered destructible objects.
-
-The system:
-
-1. Checks vehicle speed
-2. Finds contact pairs
-3. Identifies destructible objects
-4. Applies collision damage
-5. Updates object HP
-6. Triggers shaking
-7. Destroys the object when HP reaches zero
-8. Generates destruction effects
+This architecture allows the driving simulation, procedural world, physics, collectibles and environment effects to operate together in real time.
 
 ---
 
@@ -1261,176 +890,121 @@ The system:
 ```text
 VEHICLE POSITION
        ↓
-GROUND SNAP
-       ↓
 PROCEDURAL TERRAIN
        ↓
 HEIGHTFIELD
        ↓
-SCATTER CELLS
+WORLD CELLS
        ↓
-ENVIRONMENT OBJECTS
+ENVIRONMENT
        ↓
-COINS / RUINS / VEGETATION
+VEGETATION / OBJECTS
+       ↓
+COINS
+```
+
+As the vehicle moves, new areas are generated and distant areas are cleaned up.
+
+---
+
+# 🏎️ Vehicle Simulation Flow
+
+```text
+W / S
+  ↓
+THROTTLE
+  ↓
+VEHICLE CONTROLLER
+  ↓
+WHEEL FORCES
+  ↓
+SUSPENSION + FRICTION
+  ↓
+RIGID BODY
+  ↓
+TERRAIN COLLISION
+  ↓
+VEHICLE TRANSFORM
+  ↓
+3D VEHICLE MODEL
 ```
 
 ---
 
-# 🪙 Collectible Flow
+# 🪙 Progression Loop
+
+The RPG element is built around exploration and vehicle improvement:
 
 ```text
-COIN SPAWN
-    ↓
-BOB + ROTATE
-    ↓
-PLAYER APPROACHES
-    ↓
-COLLECTION DISTANCE
-    ↓
-COIN SCORE +1
-    ↓
-COLLECT ANIMATION
-    ↓
-SPARKLE EFFECT
-    ↓
-REMOVE COIN
-```
-
----
-
-# 🎨 Visual Style
-
-The game uses a naturalistic off-road environment rather than a neon arcade aesthetic.
-
-The visual design focuses on:
-
-* 🏜️ Warm desert colors
-* 🌲 Natural forest colors
-* 🌊 Blue water
-* 🌫️ Atmospheric fog
-* ☀️ Directional sunlight
-* 🌄 Large terrain silhouettes
-* 💨 Environmental particles
-* 🏚️ Scattered ruins
-* 🪙 Glowing collectible coins
-
----
-
-# 🔭 Camera Experience
-
-The default camera follows the vehicle from behind and above.
-
-```text
-             CAMERA
-                📷
-                 \
-                  \
-                   🚗
-                  /  \
-             🌄 TERRAIN
-```
-
-The camera smoothly interpolates toward the desired position, producing a less rigid follow effect.
-
-Orbit mode provides an alternative way to inspect the vehicle and environment.
-
----
-
-# 🧪 Experimental Nature
-
-This project is designed as an experimental browser-based 3D vehicle simulation.
-
-It demonstrates how modern web technologies can be combined to create:
-
-```text
-WEBGPU
-   +
-PHYSICS
-   +
-PROCEDURAL GENERATION
-   +
-PARTICLES
-   +
-DESTRUCTIBLE OBJECTS
-   +
-REAL-TIME SETTINGS
+🚗 DRIVE
+   ↓
+🌄 EXPLORE
+   ↓
+🪙 COLLECT COINS
+   ↓
+🛠️ BUY UPGRADES
+   ↓
+⚡ IMPROVE VEHICLE
+   ↓
+🚀 DRIVE FASTER
+   ↓
+🌍 EXPLORE FURTHER
 ```
 
 ---
 
 # 🚀 Future Improvements
 
-Potential future additions include:
+Possible future additions include:
 
 * 🏁 Racing checkpoints
-* 🏆 Timed races
-* 🗺️ Larger world maps
+* ⏱️ Timed challenges
+* 🗺️ Larger procedural regions
 * 🚗 Multiple vehicles
-* 🔧 More vehicle upgrades
 * 🛞 More tire types
+* 🔧 More upgrade categories
 * 🌧️ Dynamic weather
 * 🌙 Day/night cycle
-* 🌲 More environmental objects
-* 🏚️ More destructible structures
-* 🪙 Persistent coin collection
-* 🏆 High-score system
 * 🎮 Gamepad support
 * 📱 Touch controls
 * 🔊 Engine audio
-* 🎵 Environmental sound
-* 🚦 Race tracks
-* 🏁 Lap system
-* 👥 Multiplayer
+* 🎵 Environmental audio
+* 🏆 High-score system
+* 💾 Persistent progression
 * 🌐 Online leaderboards
-* 💾 Save-game support
+* 👥 Multiplayer
 
 ---
 
 # 🤝 Contributing
 
-Contributions and improvements are welcome.
+Contributions, improvements and experiments are welcome.
 
-### Basic workflow
+Basic workflow:
 
 ```bash
-git clone https://github.com/rsamwilson2323-cloud/3D-car-game.git
-
-cd 3D-car-game
-
+git clone <repository>
+cd RPG-CAR-GAME
 npx serve .
 ```
 
-Create your changes, test them in a WebGPU-compatible browser, and submit a pull request.
-
----
-
-# 🚫 Git Ignore
-
-Generated files and local dependencies should not be committed.
-
-The repository ignores:
-
-```text
-node_modules
-dist
-.DS_Store
-```
+Make your changes, test them in a WebGPU-compatible browser, and submit a pull request.
 
 ---
 
 # ⚠️ Disclaimer
 
-This project is intended for:
+This project is an experimental browser-based 3D driving game created for:
 
-* 🎓 Educational purposes
-* 🧪 Experimental development
-* 🎮 Game development learning
-* 🌐 WebGPU experimentation
+* 🎓 Learning
+* 🧪 Experimentation
+* 🎮 Game development
+* 🌐 WebGPU exploration
 * 🚗 Vehicle physics experimentation
-* 🌄 Procedural world generation
-* 🎨 Creative 3D development
+* 🌄 Procedural generation
+* 💻 Modern browser graphics
 
-The project is a browser-based experimental driving experience.
+Performance may vary depending on the browser, GPU and device.
 
 ---
 
@@ -1440,55 +1014,40 @@ This project is released under the **MIT License**.
 
 You are free to:
 
-* ✅ Use the project
-* ✅ Study the source code
-* ✅ Modify the project
-* ✅ Create derivative works
-* ✅ Distribute copies
-* ✅ Use it for personal or educational projects
+* Use the project
+* Study the source code
+* Modify the project
+* Create derivative works
+* Distribute copies
+
+See the `LICENSE` file for the complete license text.
 
 ---
 
 # 🚗 FINAL DRIVE
 
 ```text
-╔════════════════════════════════════════════╗
-║                                            ║
-║          🚗  T E R R A I N                 ║
-║              V E H I C L E                 ║
-║                                            ║
-║          🌄 EXPLORE THE WORLD              ║
-║                                            ║
-║              🚗 DRIVE                      ║
-║              🚀 BOOST                      ║
-║              🪂 JUMP                       ║
-║              💥 CRASH                      ║
-║              🪙 COLLECT                    ║
-║              🌊 SPLASH                     ║
-║              🌲 EXPLORE                    ║
-║                                            ║
-╚════════════════════════════════════════════╝
+╔══════════════════════════════════════════════╗
+║                                              ║
+║             🚗  RPG CAR GAME                 ║
+║                                              ║
+║          🌄 EXPLORE THE TERRAIN              ║
+║                                              ║
+║              🚗 DRIVE                        ║
+║              🚀 BOOST                        ║
+║              🦘 JUMP                         ║
+║              💥 CRASH                        ║
+║              🪙 COLLECT                      ║
+║              🛠️ UPGRADE                     ║
+║              🌊 SPLASH                       ║
+║                                              ║
+╚══════════════════════════════════════════════╝
 ```
 
-## 🚗 Start the engine.
-
-## 🌄 Explore the terrain.
-
-## 🚀 Push the limits.
-
-## 💥 Leave your mark.
-
----
+## **Drive further. Upgrade harder. Explore everything. 🚗🌄**
 
 <p align="center">
 
-**Made with 🚗 + 🌄 + Three.js WebGPU + Rapier 3D**
-
-</p>
-
-<p align="center">
-
-**Repository:**  
-https://github.com/rsamwilson2323-cloud/TERRAIN-VEHICLE-3D.git
+**Made with 🚗 + Three.js WebGPU + Rapier 3D + JavaScript**
 
 </p>
